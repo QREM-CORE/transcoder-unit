@@ -1,4 +1,4 @@
-# 1. Submodules (i.e. -f-f lib/keccak-fips202-sv/rtl.f)
+# 1. Submodules (i.e. -f lib/keccak-fips202-sv/rtl.f)
 
 # 2. Local Packages (i.e., rtl/my_pkg.sv)
 
