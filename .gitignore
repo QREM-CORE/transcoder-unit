@@ -1,0 +1,9 @@
+work/
+transcript
+*.vcd
+*.macro
+*.log
+*.txt
+obj_dir/
+build.f
+.vscode/
