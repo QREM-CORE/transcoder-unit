@@ -1,5 +1,11 @@
+/*
+ * Module Name: decompress
+ * Author(s): Mai Komar
+ * Description: 4-lane parallel combinational Decompress_d implementation (FIPS 203).
+ */
+
 `default_nettype none
-import poly_arith_pkg::*;
+import transcoder_pkg::*;
 
 // Decompress_d(y) = round(q * y / 2^d)
 // 4 lanes in parallel, purely combinational.

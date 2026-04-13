@@ -1,5 +1,11 @@
+/*
+ * Module Name: compress
+ * Author(s): Mai Komar
+ * Description: 4-lane parallel combinational Compress_d implementation (FIPS 203).
+ */
+
 `default_nettype none
-import poly_arith_pkg::*;
+import transcoder_pkg::*;
 
 // Compress_d(x) = round(2^d * x / q) mod 2^d
 // 4 lanes in parallel, purely combinational.
