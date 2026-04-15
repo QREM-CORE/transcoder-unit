@@ -44,7 +44,7 @@ module compress (
 
     genvar i;
     generate
-        for (i = 0; i < 4; i++) begin : G_LANE
+        for (i = 0; i < 4; i++) begin : g_compress
             assign coeff_o[i] = compress_one(coeff_i[i], d_i);
         end
     endgenerate

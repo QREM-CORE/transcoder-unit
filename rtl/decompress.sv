@@ -35,7 +35,7 @@ module decompress (
 
     genvar i;
     generate
-        for (i = 0; i < 4; i++) begin : G_LANE
+        for (i = 0; i < 4; i++) begin : g_decompress
             assign coeff_o[i] = decompress_one(coeff_i[i], d_i);
         end
     endgenerate
