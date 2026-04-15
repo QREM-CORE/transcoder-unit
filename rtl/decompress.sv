@@ -11,9 +11,9 @@ import transcoder_pkg::*;
 // 4 lanes in parallel, purely combinational.
 // d=12 is a passthrough (no decompression).
 module decompress (
-    input  logic [3:0][COEFF_WIDTH-1:0] coeff_i,
-    input  logic [3:0]                  d_i,
-    output logic [3:0][COEFF_WIDTH-1:0] coeff_o
+    input  wire logic [3:0][COEFF_WIDTH-1:0] coeff_i,
+    input  wire logic [3:0]                  d_i,
+    output wire logic [3:0][COEFF_WIDTH-1:0] coeff_o
 );
     function automatic logic [COEFF_WIDTH-1:0] decompress_one(
         input logic [COEFF_WIDTH-1:0] y,
