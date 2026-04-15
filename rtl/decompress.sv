@@ -19,16 +19,35 @@ module decompress (
         input logic [COEFF_WIDTH-1:0] y,
         input logic [3:0]             d
     );
-        logic [22:0] qy;
-        logic [22:0] rounded;
+        logic [15:0] qy_4;
+        logic [16:0] qy_5;
+        logic [21:0] qy_10;
+        logic [22:0] qy_11;
     begin
         if (d == 4'd12) begin
             decompress_one = y;
+        end else if (d == 4'd1) begin
+            decompress_one = y[0] ? 12'd1665 : 12'd0;
         end else begin
-            // q*y via shift-and-add: 3329 = 2^11 + 2^10 + 2^8 + 1
-            qy             = (23'(y) << 11) + (23'(y) << 10) + (23'(y) << 8) + 23'(y);
-            rounded        = qy + 23'(1 << (d - 4'd1)); // round to nearest
-            decompress_one = COEFF_WIDTH'(rounded >> d);
+            case (d)
+                4'd4: begin
+                    qy_4 = (16'(y[3:0]) << 11) + (16'(y[3:0]) << 10) + (16'(y[3:0]) << 8) + 16'(y[3:0]);
+                    decompress_one = 12'((qy_4 + 16'd8) >> 4);
+                end
+                4'd5: begin
+                    qy_5 = (17'(y[4:0]) << 11) + (17'(y[4:0]) << 10) + (17'(y[4:0]) << 8) + 17'(y[4:0]);
+                    decompress_one = 12'((qy_5 + 17'd16) >> 5);
+                end
+                4'd10: begin
+                    qy_10 = (22'(y[9:0]) << 11) + (22'(y[9:0]) << 10) + (22'(y[9:0]) << 8) + 22'(y[9:0]);
+                    decompress_one = 12'((qy_10 + 22'd512) >> 10);
+                end
+                4'd11: begin
+                    qy_11 = (23'(y[10:0]) << 11) + (23'(y[10:0]) << 10) + (23'(y[10:0]) << 8) + 23'(y[10:0]);
+                    decompress_one = 12'((qy_11 + 23'd1024) >> 11);
+                end
+                default: decompress_one = '0;
+            endcase
         end
     end
     endfunction
