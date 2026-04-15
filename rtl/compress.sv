@@ -15,17 +15,18 @@ module compress (
     input  wire logic [3:0]                  d_i,
     output wire logic [3:0][COEFF_WIDTH-1:0] coeff_o
 );
-    // Mathematically Exact MUX-then-add datapath
-    // Barrett Magic M = 161271, K = 29. Constant QHALF*M = 268354944.
-    // Multiplier is 12-bit x 18-bit constant.
+    // Inha University Algorithm 7 approach
+    // Compress_d: t = m * x (m = 10321340)
+    //             y = (t >> (35 - d)) + t[34 - d]
+    // Uses 12-bit x 24-bit constant multiply, saving wide MUX and adder overhead.
 
     function automatic logic [COEFF_WIDTH-1:0] compress_one(
         input logic [COEFF_WIDTH-1:0] x,
         input logic [3:0]             d
     );
-        logic [28:0] xM;
-        logic [39:0] shifted_xM;
-        logic [40:0] shifted_sum;
+        logic [34:0] t;
+        logic [11:0] shifted_t;
+        logic        round_bit;
         logic [11:0] mask;
     begin
         if (d == 4'd12) begin
@@ -34,24 +35,19 @@ module compress (
             // d=1 bypass using comparators (Compress_1(x) = 1 iff 833 <= x <= 2496)
             compress_one = ((x >= 12'd833) && (x <= 12'd2496)) ? 12'd1 : 12'd0;
         end else begin
-            // Mathematical exactness without correction requires calculating ((x << d) + 1664) * M >> K
-            // By multiplying `x` first: (x*M << d) + 1664*M >> K.
-            // Barrett Magic M = 161271, K = 29. Constant QHALF*M = 1664 * 161271 = 268354944.
-            xM = 29'(x) * 29'd161271; // 12-bit x 18-bit constant multiply
+            t = 35'(x) * 35'd10321340; // 12-bit x 24-bit constant multiply
 
+            // Extract bits [34 : 35-d] and round_bit t[34-d]
             case (d)
-                // d logic: max shift 11. xM is 29 bit. + 11 = 40 bit.
-                4'd4:  begin shifted_xM = {7'b0, xM, 4'b0};   mask = 12'h00F; end
-                4'd5:  begin shifted_xM = {6'b0, xM, 5'b0};   mask = 12'h01F; end
-                4'd10: begin shifted_xM = {1'b0, xM, 10'b0};  mask = 12'h3FF; end
-                4'd11: begin shifted_xM = {      xM, 11'b0};  mask = 12'h7FF; end
-                default: begin shifted_xM = '0;               mask = '0; end
+                4'd4:  begin shifted_t = 12'(t[34:31]); round_bit = t[30]; mask = 12'h00F; end
+                4'd5:  begin shifted_t = 12'(t[34:30]); round_bit = t[29]; mask = 12'h01F; end
+                4'd10: begin shifted_t = 12'(t[34:25]); round_bit = t[24]; mask = 12'h3FF; end
+                4'd11: begin shifted_t = 12'(t[34:24]); round_bit = t[23]; mask = 12'h7FF; end
+                default: begin shifted_t = '0;          round_bit = 1'b0;  mask = '0; end
             endcase
 
-            // Add QHALF*M
-            shifted_sum = 41'(shifted_xM) + 41'd268354944;
-
-            compress_one = shifted_sum[40:29] & mask;
+            // Add single-bit round and apply mask
+            compress_one = (shifted_t + 12'(round_bit)) & mask;
         end
     end
     endfunction
