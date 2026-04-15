@@ -31,7 +31,8 @@ module compress (
             compress_one = x;
         end else begin
             case (d)
-                // ML-KEM valid d parameters
+                // ML-KEM valid d parameters (FIPS 203)
+                4'd1:  begin n = {10'b0, x, 2'b0} + 24'(Q);  mask = 12'h001; end
                 4'd4:  begin n = {7'b0, x, 5'b0} + 24'(Q);   mask = 12'h00F; end
                 4'd5:  begin n = {6'b0, x, 6'b0} + 24'(Q);   mask = 12'h01F; end
                 4'd10: begin n = {1'b0, x, 11'b0} + 24'(Q);  mask = 12'h3FF; end
