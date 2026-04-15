@@ -11,39 +11,47 @@ import transcoder_pkg::*;
 // 4 lanes in parallel, purely combinational.
 // d=12 is a passthrough (no compression).
 module compress (
-    input  logic [3:0][COEFF_WIDTH-1:0] coeff_i,
-    input  logic [3:0]                  d_i,
-    output logic [3:0][COEFF_WIDTH-1:0] coeff_o
+    input  wire logic [3:0][COEFF_WIDTH-1:0] coeff_i,
+    input  wire logic [3:0]                  d_i,
+    output wire logic [3:0][COEFF_WIDTH-1:0] coeff_o
 );
-    // Option C: Specialized datapath per ML-KEM 'd' value
-    // Barrett Magic M = 10080, K = 26
-    localparam logic [13:0] M_WIDE = 14'd10080;
+    // Mathematically Exact MUX-then-add datapath
+    // Barrett Magic M = 161271, K = 29. Constant QHALF*M = 268354944.
+    // Multiplier is 12-bit x 18-bit constant.
 
     function automatic logic [COEFF_WIDTH-1:0] compress_one(
         input logic [COEFF_WIDTH-1:0] x,
         input logic [3:0]             d
     );
-        logic [23:0] n;
-        logic [37:0] product;
+        logic [28:0] xM;
+        logic [39:0] shifted_xM;
+        logic [40:0] shifted_sum;
         logic [11:0] mask;
     begin
         if (d == 4'd12) begin
             compress_one = x;
+        end else if (d == 4'd1) begin
+            // d=1 bypass using comparators (Compress_1(x) = 1 iff 833 <= x <= 2496)
+            compress_one = ((x >= 12'd833) && (x <= 12'd2496)) ? 12'd1 : 12'd0;
         end else begin
+            // Mathematical exactness without correction requires calculating ((x << d) + 1664) * M >> K
+            // By multiplying `x` first: (x*M << d) + 1664*M >> K.
+            // Barrett Magic M = 161271, K = 29. Constant QHALF*M = 1664 * 161271 = 268354944.
+            xM = 29'(x) * 29'd161271; // 12-bit x 18-bit constant multiply
+
             case (d)
-                // ML-KEM valid d parameters (FIPS 203)
-                4'd1:  begin n = {10'b0, x, 2'b0} + 24'(Q);  mask = 12'h001; end
-                4'd4:  begin n = {7'b0, x, 5'b0} + 24'(Q);   mask = 12'h00F; end
-                4'd5:  begin n = {6'b0, x, 6'b0} + 24'(Q);   mask = 12'h01F; end
-                4'd10: begin n = {1'b0, x, 11'b0} + 24'(Q);  mask = 12'h3FF; end
-                4'd11: begin n = {x, 12'b0} + 24'(Q);        mask = 12'h7FF; end
-                default: begin n = '0; mask = '0; end
+                // d logic: max shift 11. xM is 29 bit. + 11 = 40 bit.
+                4'd4:  begin shifted_xM = {7'b0, xM, 4'b0};   mask = 12'h00F; end
+                4'd5:  begin shifted_xM = {6'b0, xM, 5'b0};   mask = 12'h01F; end
+                4'd10: begin shifted_xM = {1'b0, xM, 10'b0};  mask = 12'h3FF; end
+                4'd11: begin shifted_xM = {      xM, 11'b0};  mask = 12'h7FF; end
+                default: begin shifted_xM = '0;               mask = '0; end
             endcase
 
-            // Single shared massive multiplier inferred, shifted by K=26
-            product = 38'(n) * 38'(M_WIDE);
+            // Add QHALF*M
+            shifted_sum = 41'(shifted_xM) + 41'd268354944;
 
-            compress_one = COEFF_WIDTH'(product[37:26]) & mask;
+            compress_one = shifted_sum[40:29] & mask;
         end
     end
     endfunction
