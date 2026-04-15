@@ -1,6 +1,6 @@
 /*
  * Module Name: compress
- * Author(s): Mai Komar
+ * Author(s): Mai Komar, Kiet Le
  * Description: 4-lane parallel combinational Compress_d implementation (FIPS 203).
  */
 
