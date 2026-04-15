@@ -1,3 +1,12 @@
+/*
+ * Module Name: decompress_tb
+ * Author(s): Mai Komar, Kiet Le
+ * Description:
+ *   Exhaustive testbench for the 4-lane parallel decompress module.
+ *   Iterates through all possible values of d (1, 4, 5, 10, 11) and
+ *   tests every valid input within the range 0 to (2^d - 1).
+ *   Validates bit-exactness against a golden FIPS 203 software model.
+ */
 `timescale 1ns/1ps
 
 module decompress_tb;

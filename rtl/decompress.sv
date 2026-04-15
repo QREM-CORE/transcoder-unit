@@ -1,7 +1,13 @@
 /*
  * Module Name: decompress
- * Author(s): Mai Komar
- * Description: 4-lane parallel combinational Decompress_d implementation (FIPS 203).
+ * Author(s): Mai Komar, Kiet Le
+ * Description:
+ *   4-lane parallel, bit-exact combinational FIPS 203 decompression.
+ *   Implements Decompress_d(y) = round(q * y / 2^d).
+ *   Optimized for area and timing using statically-sized, case-based
+ *   shift-and-add operations. Includes a dedicated combinational fast path
+ *   for the d=1 edge case, and sizes intermediate math paths exactly to
+ *   their highly constrained, per-case theoretical maximum bit-widths.
  */
 
 `default_nettype none
