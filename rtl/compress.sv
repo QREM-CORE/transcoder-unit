@@ -15,16 +15,16 @@ module compress (
     input  wire logic [3:0]                  d_i,
     output wire logic [3:0][COEFF_WIDTH-1:0] coeff_o
 );
-    // Inha University Algorithm 7 approach
-    // Compress_d: t = m * x (m = 10321340)
-    //             y = (t >> (35 - d)) + t[34 - d]
-    // Uses 12-bit x 24-bit constant multiply, saving wide MUX and adder overhead.
+    // Hybrid bits-extraction approach (Inha algorithm, smaller K)
+    // Compress_d: t = m * x (m = 2580335)
+    //             y = (t >> (33 - d)) + t[32 - d]
+    // Uses 12-bit x 22-bit constant multiply. Narrower than Inha m=10321340.
 
     function automatic logic [COEFF_WIDTH-1:0] compress_one(
         input logic [COEFF_WIDTH-1:0] x,
         input logic [3:0]             d
     );
-        logic [34:0] t;
+        logic [32:0] t;
         logic [11:0] shifted_t;
         logic        round_bit;
         logic [11:0] mask;
@@ -35,14 +35,14 @@ module compress (
             // d=1 bypass using comparators (Compress_1(x) = 1 iff 833 <= x <= 2496)
             compress_one = ((x >= 12'd833) && (x <= 12'd2496)) ? 12'd1 : 12'd0;
         end else begin
-            t = 35'(x) * 35'd10321340; // 12-bit x 24-bit constant multiply
+            t = 33'(x) * 33'd2580335; // 12-bit x 22-bit constant multiply
 
-            // Extract bits [34 : 35-d] and round_bit t[34-d]
+            // Extract bits [32 : 33-d] and round_bit t[32-d]
             case (d)
-                4'd4:  begin shifted_t = 12'(t[34:31]); round_bit = t[30]; mask = 12'h00F; end
-                4'd5:  begin shifted_t = 12'(t[34:30]); round_bit = t[29]; mask = 12'h01F; end
-                4'd10: begin shifted_t = 12'(t[34:25]); round_bit = t[24]; mask = 12'h3FF; end
-                4'd11: begin shifted_t = 12'(t[34:24]); round_bit = t[23]; mask = 12'h7FF; end
+                4'd4:  begin shifted_t = 12'(t[32:29]); round_bit = t[28]; mask = 12'h00F; end
+                4'd5:  begin shifted_t = 12'(t[32:28]); round_bit = t[27]; mask = 12'h01F; end
+                4'd10: begin shifted_t = 12'(t[32:23]); round_bit = t[22]; mask = 12'h3FF; end
+                4'd11: begin shifted_t = 12'(t[32:22]); round_bit = t[21]; mask = 12'h7FF; end
                 default: begin shifted_t = '0;          round_bit = 1'b0;  mask = '0; end
             endcase
 
