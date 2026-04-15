@@ -1,7 +1,13 @@
 /*
  * Module Name: compress
  * Author(s): Mai Komar, Kiet Le
- * Description: 4-lane parallel combinational Compress_d implementation (FIPS 203).
+ * Description:
+ *   4-lane parallel, bit-exact combinational FIPS 203 compression.
+ *   Replaces generic constant division approximations with the exact
+ *   Barrett bounds (M=161271, K=29) to eliminate runtime correction loops.
+ *   To achieve lowest latency/area, the underlying 12x18 multiplier is
+ *   hardcoded into a CSD adder-tree mathematically reduced from 6 standard
+ *   terms to exactly 4 highly-symmetric ALU ops via term-recycling.
  */
 
 `default_nettype none
