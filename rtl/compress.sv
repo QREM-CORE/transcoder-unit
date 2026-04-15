@@ -19,59 +19,38 @@ module compress (
     // Barrett Magic M = 10080, K = 26
     localparam logic [13:0] M_WIDE = 14'd10080;
 
-    function automatic logic [COEFF_WIDTH-1:0] compress_d4(input logic [COEFF_WIDTH-1:0] x);
-        logic [16:0] n;
-        logic [30:0] product;
-    begin
-        n = {x, 5'b0} + 17'(Q);
-        product = 31'(n) * 31'(M_WIDE);
-        compress_d4 = COEFF_WIDTH'(product[29:26]);
-    end
-    endfunction
-
-    function automatic logic [COEFF_WIDTH-1:0] compress_d5(input logic [COEFF_WIDTH-1:0] x);
-        logic [17:0] n;
-        logic [31:0] product;
-    begin
-        n = {x, 6'b0} + 18'(Q);
-        product = 32'(n) * 32'(M_WIDE);
-        compress_d5 = COEFF_WIDTH'(product[30:26]);
-    end
-    endfunction
-
-    function automatic logic [COEFF_WIDTH-1:0] compress_d10(input logic [COEFF_WIDTH-1:0] x);
-        logic [22:0] n;
-        logic [36:0] product;
-    begin
-        n = {x, 11'b0} + 23'(Q);
-        product = 37'(n) * 37'(M_WIDE);
-        compress_d10 = COEFF_WIDTH'(product[35:26]);
-    end
-    endfunction
-
-    function automatic logic [COEFF_WIDTH-1:0] compress_d11(input logic [COEFF_WIDTH-1:0] x);
+    function automatic logic [COEFF_WIDTH-1:0] compress_one(
+        input logic [COEFF_WIDTH-1:0] x,
+        input logic [3:0]             d
+    );
         logic [23:0] n;
         logic [37:0] product;
+        logic [11:0] mask;
     begin
-        n = {x, 12'b0} + 24'(Q);
-        product = 38'(n) * 38'(M_WIDE);
-        compress_d11 = COEFF_WIDTH'(product[36:26]);
+        if (d == 4'd12) begin
+            compress_one = x;
+        end else begin
+            case (d)
+                // ML-KEM valid d parameters
+                4'd4:  begin n = {7'b0, x, 5'b0} + 24'(Q);   mask = 12'h00F; end
+                4'd5:  begin n = {6'b0, x, 6'b0} + 24'(Q);   mask = 12'h01F; end
+                4'd10: begin n = {1'b0, x, 11'b0} + 24'(Q);  mask = 12'h3FF; end
+                4'd11: begin n = {x, 12'b0} + 24'(Q);        mask = 12'h7FF; end
+                default: begin n = '0; mask = '0; end
+            endcase
+
+            // Single shared massive multiplier inferred, shifted by K=26
+            product = 38'(n) * 38'(M_WIDE);
+
+            compress_one = COEFF_WIDTH'(product[37:26]) & mask;
+        end
     end
     endfunction
 
     genvar i;
     generate
         for (i = 0; i < 4; i++) begin : g_compress
-            always_comb begin
-                case (d_i)
-                    4'd4:    coeff_o[i] = compress_d4(coeff_i[i]);
-                    4'd5:    coeff_o[i] = compress_d5(coeff_i[i]);
-                    4'd10:   coeff_o[i] = compress_d10(coeff_i[i]);
-                    4'd11:   coeff_o[i] = compress_d11(coeff_i[i]);
-                    4'd12:   coeff_o[i] = coeff_i[i];
-                    default: coeff_o[i] = '0;
-                endcase
-            end
+            assign coeff_o[i] = compress_one(coeff_i[i], d_i);
         end
     endgenerate
 
