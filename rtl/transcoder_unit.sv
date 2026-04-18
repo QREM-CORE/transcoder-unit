@@ -18,39 +18,65 @@ module transcoder (
     // ==========================================
     input  logic        ctrl_start,
     output logic        ctrl_done,
-    input  logic [3:0]  ctrl_d_param,   // 1, 4, 5, 10, 11, or 12
-    input  logic [5:0]  ctrl_poly_idx,  // Which polynomial in memory we are targeting
-    // input  logic [2:0]  ctrl_seed_idx,  // Which seed in memory we are targeting
+    input  logic [1:0]  ctrl_sec_level, // 00: ML-KEM-512, 01: 768, 10: 1024
 
-    // Core Transcoder Modes:
-    // 2'b00 (Enc)     : PolyMem -> Compress_d -> ByteEncode_d -> AXI-TX (and Hash Snoop)
-    // 2'b01 (Dec)     : AXI-RX  -> ByteDecode_d -> Decompress_d -> PolyMem
-    // 2'b10 (Msg_Enc) : AXI-RX  -> ByteDecode_1 -> Decompress_1 -> PolyMem
-    // 2'b11 (Msg_Dec) : PolyMem -> Compress_1   -> ByteEncode_1 -> AXI-TX
-    input  logic [1:0]  ctrl_mode,
+    // === High-Level Artifact Opcodes ===
+    // --- KEYGEN ---
+    // 3'b000: TR_OP_KG_INGEST_D      (AXI-RX -> SeedBank(d))
+    // 3'b001: TR_OP_KG_EXPORT_DK_PKE (PolyMem(s) -> Encode -> AXI-TX)
+    // 3'b010: TR_OP_KG_EXPORT_EK_PKE (PolyMem(t) -> Encode -> AXI-TX/HSU, Seed(rho) -> AXI-TX, Seed(rho) -> HSU)
+    // 3'b011: TR_OP_KG_EXPORT_HEK    (HSU(H(ek)) -> AXI-TX)
+
+    // --- ENCAP ---
+    // 3'b001: TR_OP_EN_INGEST_EK (AXI-RX -> Decode -> PolyMem(t), extract Seed(rho) -> seedbank)
+    // 3'b100: TR_OP_EN_EXPORT_CT (PolyMem(u,v) -> Compress/Encode -> AXI-TX)
+
+    // --- DECAP ---
+    // 3'b011: TR_OP_DC_INGEST_DK (AXI-RX -> Decode -> PolyMem(s), extract ek, H(ek), z)
+    // 3'b101: TR_OP_DC_INGEST_CT (AXI-RX -> Decode/Decompress -> PolyMem(u,v))
+    // 3'b110: TR_OP_DC_MSG_ENC   (AXI-RX -> Decode_1/Decomp_1 -> PolyMem(mu))
+    // 3'b111: TR_OP_DC_MSG_DEC   (PolyMem(w) -> Comp_1/Encode_1 -> AXI-TX)
+    input  logic [2:0]  ctrl_opcode,
 
     // ==========================================
     // Polynomial Memory Interface (Internal)
     // 4 coefficients per cycle = 4 * 12 bits = 48 bits
     // ==========================================
-    // Read Channel (For Compress/Encode)
-    output logic        poly_rd_req,
-    output logic [5:0]  poly_rd_addr,   // 0 to 63 (since 256 / 4 = 64)
-    input  logic [47:0] poly_rd_data,
+    // Global Memory Control
+    output logic                       poly_req_o,
+    input  logic                       poly_stall_i,
 
-    // Write Channel (For Decode/Decompress)
-    output logic        poly_wr_req,
-    output logic [5:0]  poly_wr_addr,
-    output logic [47:0] poly_wr_data,
+    // Read Request Channel (For Compress/Encode)
+    output logic                       poly_rd_en_o,
+    output logic [POLY_ID_W-1:0]       poly_rd_poly_id_o,
+    output logic [3:0][7:0]            poly_rd_idx_o,
+    output logic [3:0]                 poly_rd_lane_valid_o,
+
+    // Write Request Channel (For Decode/Decompress)
+    output logic [3:0]                 poly_wr_en_o,
+    output logic [POLY_ID_W-1:0]       poly_wr_poly_id_o,
+    output logic [3:0][7:0]            poly_wr_idx_o,
+    output logic [3:0][11:0]           poly_wr_data_o,
+
+    // Read Response Channel (Data returning from memory)
+    input  logic                       poly_rd_valid_i,
+    input  logic [POLY_ID_W-1:0]       poly_rd_poly_id_i,
+    input  logic [3:0][7:0]            poly_rd_idx_i,
+    input  logic [3:0]                 poly_rd_lane_valid_i,
+    input  logic [3:0][11:0]           poly_rd_data_i,
 
     // ==========================================
-    // Seed Bank Interface
+    // Seed / Protocol Store Interface
     // ==========================================
-    // If seeds are packed alongside public keys (e.g., the 32-byte rho),
-    // the transcoder might need to route them directly to/from the seed bank.
-    output logic        seed_wr_req,
-    output logic [3:0]  seed_wr_addr,
-    output logic [63:0] seed_wr_data,
+    // Routes seeds, hashes, and keys directly to/from the
+    // unified memory subsystem during Raw Passthrough modes.
+    output logic                          seed_req_o,
+    output logic                          seed_we_o,
+    output logic [$clog2(SEED_DEPTH)-1:0] seed_addr_o,
+    output logic [SEED_W-1:0]             seed_wdata_o,
+    input  logic                          seed_ready_i,
+    input  logic                          seed_rvalid_i,
+    input  logic [SEED_W-1:0]             seed_rdata_i,
 
     // ==========================================
     // HASH SNOOP INTERFACE - TRANSCODER -> KECCAK
