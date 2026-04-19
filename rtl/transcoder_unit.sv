@@ -1,6 +1,6 @@
 /*
  * Module Name: transcoder_unit
- * Author(s):
+ * Author(s):   Kiet Le
  * Description: Top level module for the transcoder unit.
  */
 
