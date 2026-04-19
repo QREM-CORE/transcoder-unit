@@ -25,9 +25,9 @@ module transcoder (
     // 5'b00000: TR_OP_KG_INGEST_D          (AXI-RX -> SeedBank(d))
     // 5'b00001: TR_OP_KG_EXPORT_DK_PKE     (PolyMem(s) -> Encode12 -> AXI-TX)
     // 5'b00010: TR_OP_KG_EXPORT_EK_PKE     (PolyMem(t) -> Encode12 -> AXI-TX/HSU,
-    //                                      SeedBank(rho) -> AXI-TX,
+    //                                       SeedBank(rho) -> AXI-TX,
     // 5'b00011: TR_OP_KG_EXPORT_HEK        (HSU(H(ek)) -> AXI-TX)
-    //                                      SeedBank(rho) -> HSU (transcoder not responsible for this))
+    //                                       SeedBank(rho) -> HSU (transcoder not responsible for this))
 
     // --- ENCAP ---
     // 5'b00100: TR_OP_EN_INGEST_M          (AXI-RX -> SeedBank(m))
@@ -41,11 +41,11 @@ module transcoder (
     // 5'b01010: TR_OP_DC_INGEST_DK_PKE     (AXI-RX -> Decode12 -> PolyMem(s))
     // 5'b01011: TR_OP_DC_INGEST_C1         (AXI-RX -> Decode_DU/Decompress_DU -> PolyMem(u'))
     // 5'b01100: TR_OP_DC_INGEST_C2         (AXI-RX -> Decode_DV/Decompress_DV -> PolyMem(v'))
-    // 5'B00000: TR_OP_DC_INGEST_Z          (AXI-RX -> SeedBank(z))
-    // 5'b01101: TR_OP_DC_MSG_ENC           (PolyMem(w) -> Decode_1/Decomp_1 -> Seedbank(m'))
-    // 5'b01110: TR_OP_DC_EXPORT_K          (Seedbank(k) -> AXI-TX)
-    // 5'b01111: TR_OP_DC_EXPORT_K_BAR      (Seedbank(k-bar) -> AXI-TX)
-    // 5'b10000: TR_OP_DC_EXPORT_R          (Seedbank(r) -> AXI-TX)
+    // 5'b01101: TR_OP_DC_INGEST_Z          (AXI-RX -> SeedBank(z))
+    // 5'b01110: TR_OP_DC_MSG_ENC           (PolyMem(w) -> Decode_1/Decomp_1 -> Seedbank(m'))
+    // 5'b01111: TR_OP_DC_EXPORT_K          (Seedbank(k) -> AXI-TX)
+    // 5'b10000: TR_OP_DC_EXPORT_K_BAR      (Seedbank(k-bar) -> AXI-TX)
+    // 5'b10001: TR_OP_DC_EXPORT_R          (Seedbank(r) -> AXI-TX)
     input  logic [4:0]                      ctrl_opcode,
 
     // ==========================================
