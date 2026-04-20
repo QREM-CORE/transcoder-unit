@@ -32,17 +32,17 @@ module transcoder (
     // --- ENCAP ---
     // 5'b00100: TR_OP_EN_INGEST_M          (AXI-RX -> SeedBank(m))
     // 5'b00101: TR_OP_EN_INGEST_EK         (AXI-RX(ek:encoded(t-hat), rho) -> Decode(t-hat)/HSU(ek) -> PolyMem(t), extract Seed(rho) -> seedbank)
-    // 5'b00110: TR_OP_EN_MSG_DEC           (SeedBank(m) -> DECODE1/DECOMP1 -> PolyMem(mu))
-    // 5'b00111: TR_OP_EN_EXPORT_CT_1       (PolyMem(u) -> Compress_DU/Encode_DU -> AXI-TX)
-    // 5'b01000: TR_OP_EN_EXPORT_CT_2       (PolyMem(v) -> Compress_DV/Encode_DV -> AXI-TX)
+    // 5'b00110: TR_OP_EN_MSG_DEC           (SeedBank(m) -> Decode_1 -> Decompress_1 -> PolyMem(mu))
+    // 5'b00111: TR_OP_EN_EXPORT_CT_1       (PolyMem(u) -> Compress_DU -> Encode_DU -> AXI-TX)
+    // 5'b01000: TR_OP_EN_EXPORT_CT_2       (PolyMem(v) -> Compress_DV -> Encode_DV -> AXI-TX)
     // 5'b01001: TR_OP_EN_EXPORT_K          (Seedbank(k) -> AXI-TX)
 
     // --- DECAP ---
     // 5'b01010: TR_OP_DC_INGEST_DK_PKE     (AXI-RX -> Decode12 -> PolyMem(s))
-    // 5'b01011: TR_OP_DC_INGEST_C1         (AXI-RX -> Decode_DU/Decompress_DU -> PolyMem(u'))
-    // 5'b01100: TR_OP_DC_INGEST_C2         (AXI-RX -> Decode_DV/Decompress_DV -> PolyMem(v'))
+    // 5'b01011: TR_OP_DC_INGEST_C1         (AXI-RX -> Decode_DU -> Decompress_DU -> PolyMem(u'))
+    // 5'b01100: TR_OP_DC_INGEST_C2         (AXI-RX -> Decode_DV -> Decompress_DV -> PolyMem(v'))
     // 5'b01101: TR_OP_DC_INGEST_Z          (AXI-RX -> SeedBank(z))
-    // 5'b01110: TR_OP_DC_MSG_ENC           (PolyMem(w) -> Decode_1/Decomp_1 -> Seedbank(m'))
+    // 5'b01110: TR_OP_DC_MSG_ENC           (PolyMem(w) -> Compress_1 -> Encode_1 -> Seedbank(m'))
     // 5'b01111: TR_OP_DC_EXPORT_K          (Seedbank(k) -> AXI-TX)
     // 5'b10000: TR_OP_DC_EXPORT_K_BAR      (Seedbank(k-bar) -> AXI-TX)
     // 5'b10001: TR_OP_DC_EXPORT_R          (Seedbank(r) -> AXI-TX)
