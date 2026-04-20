@@ -120,6 +120,8 @@ module tr_router #(
 
         // 2. Crossbar Select
         unique case (router_sel_i)
+            3'b000: ; // IDLE: Defaults already set above
+
             3'b001: begin // Packer -> AXI TX
                 m_axis_tdata_o  = packer_tdata_i;
                 m_axis_tvalid_o = packer_tvalid_i;
