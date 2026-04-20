@@ -1,7 +1,12 @@
 package transcoder_pkg;
 
-    // ML-KEM / FIPS 203 constants
-    parameter int Q           = 3329;  // modulus
-    parameter int COEFF_WIDTH = 12;    // bits per coefficient
+    // Explicit import + export
+    import qrem_global_pkg::tr_opcode_t;
+    import qrem_global_pkg::COEFF_WIDTH;
+    import qrem_global_pkg::Q;
+
+    export qrem_global_pkg::tr_opcode_t;
+    export qrem_global_pkg::COEFF_WIDTH;
+    export qrem_global_pkg::Q;
 
 endpackage : transcoder_pkg
