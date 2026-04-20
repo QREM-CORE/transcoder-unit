@@ -76,22 +76,26 @@ module transcoder (
     input  logic [3:0][11:0]                poly_rd_data_i,
 
     // ==========================================
-    // Seed / Protocol Store Interface
+    // Seed / Protocol Store Interface (ID-Based)
     // ==========================================
     // Routes seeds, hashes, and keys directly to/from the
-    // unified memory subsystem during Raw Passthrough modes.
+    // unified memory subsystem using semantic IDs instead of addresses.
     output logic                            seed_req_o,
     output logic                            seed_we_o,
-    output logic [$clog2(SEED_DEPTH)-1:0]   seed_addr_o,
+    output logic [SEED_ID_W-1:0]            seed_id_o,      // The semantic seed variable (e.g., RHO, Z)
+    output logic [SEED_IDX_W-1:0]           seed_idx_o,     // The 64-bit word offset within the seed
     output logic [SEED_W-1:0]               seed_wdata_o,
     input  logic                            seed_ready_i,
+
+    // Read Response Channel
     input  logic                            seed_rvalid_i,
+    input  logic [SEED_ID_W-1:0]            seed_rdata_id_i, // Returns the ID for tracking read responses
+    input  logic [SEED_IDX_W-1:0]           seed_rdata_idx_i,// Returns the offset for tracking
     input  logic [SEED_W-1:0]               seed_rdata_i,
 
     // ==========================================
     // HASH SNOOP INTERFACE - TRANSCODER -> KECCAK
     // ==========================================
-    // Driven simultaneously with AXI-S TX during specific operations.
     output logic [63:0]                     hash_snoop_data_o,
     output logic [7:0]                      hash_snoop_keep_o, // Can be hardwired to 8'hFF
     output logic                            hash_snoop_valid_o,
