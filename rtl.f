@@ -7,3 +7,4 @@ rtl/transcoder_pkg.sv
 # 3. Local RTL (i.e., rtl/transcoder_unit.sv)
 rtl/compress.sv
 rtl/decompress.sv
+rtl/tr_router.sv
