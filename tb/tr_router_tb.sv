@@ -1,6 +1,6 @@
 /*
  * Module Name: tr_router_tb
- * Author(s)
+ * Author(s): Kiet Le
  * Description:
  * Comprehensive verification environment for the ML-KEM Transcoder datapath
  * crossbar (tr_router). This testbench validates the purely combinational
