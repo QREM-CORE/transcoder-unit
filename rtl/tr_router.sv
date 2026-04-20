@@ -119,7 +119,7 @@ module tr_router #(
         unpacker_tvalid_o  = 1'b0;
 
         // 2. Crossbar Select
-        case (router_sel_i)
+        unique case (router_sel_i)
             3'b001: begin // Packer -> AXI TX
                 m_axis_tdata_o  = packer_tdata_i;
                 m_axis_tvalid_o = packer_tvalid_i;
@@ -172,10 +172,6 @@ module tr_router #(
                 // Assuming Seed SRAM is always ready to write. The FSM acts on
                 // s_axis_tvalid_i to pulse the actual seed_we_o signal.
                 s_axis_tready_o = 1'b1;
-            end
-
-            default: begin
-                // 3'b000 (Idle) is handled by the default zero-assignments above.
             end
         endcase
     end
