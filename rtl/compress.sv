@@ -21,7 +21,7 @@ module compress (
     input  wire logic                           clk,
     input  wire logic                           rst,
     input  wire logic [3:0][COEFF_WIDTH-1:0]    coeff_i,
-    input  wire logic [3:0]                      d_i,
+    input  wire logic [3:0]                     d_i,
     output      logic [3:0][COEFF_WIDTH-1:0]    coeff_o
 );
     // Barrett Exact approach with Hand-Optimized CSD Tree
