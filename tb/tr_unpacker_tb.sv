@@ -131,14 +131,14 @@ module tr_unpacker_tb;
 
     // Hardware-exact reference model for Decompression
     function automatic logic [11:0] decompress_ref(input logic [11:0] y, input logic [3:0] d);
-        logic [15:0] qy_4; logic [16:0] qy_5; logic [21:0] qy_10; logic [22:0] qy_11;
+        logic [15:0] qy_4; logic [16:0] qy_5; logic [22:0] qy_10; logic [23:0] qy_11;
         if (d == 12) return y;
         if (d == 1)  return y[0] ? 12'd1665 : 12'd0;
         case (d)
             4:  begin qy_4  = (16'(y[3:0])<<11)  + (16'(y[3:0])<<10)  + (16'(y[3:0])<<8)  + 16'(y[3:0]);  return 12'((qy_4 + 8) >> 4); end
             5:  begin qy_5  = (17'(y[4:0])<<11)  + (17'(y[4:0])<<10)  + (17'(y[4:0])<<8)  + 17'(y[4:0]);  return 12'((qy_5 + 16) >> 5); end
-            10: begin qy_10 = (22'(y[9:0])<<11)  + (22'(y[9:0])<<10)  + (22'(y[9:0])<<8)  + 22'(y[9:0]);  return 12'((qy_10 + 512) >> 10); end
-            11: begin qy_11 = (23'(y[10:0])<<11) + (23'(y[10:0])<<10) + (23'(y[10:0])<<8) + 23'(y[10:0]); return 12'((qy_11 + 1024) >> 11); end
+            10: begin qy_10 = (23'(y[9:0])<<11)  + (23'(y[9:0])<<10)  + (23'(y[9:0])<<8)  + 23'(y[9:0]);  return 12'((qy_10 + 512) >> 10); end
+            11: begin qy_11 = (24'(y[10:0])<<11) + (24'(y[10:0])<<10) + (24'(y[10:0])<<8) + 24'(y[10:0]); return 12'((qy_11 + 1024) >> 11); end
             default: return '0;
         endcase
     endfunction
@@ -298,13 +298,13 @@ module tr_unpacker_tb;
                 @(posedge clk) start = 0;
 
                 while (stimulus_queue.size() > 0) begin
-                    // 1. Starvation Phase: Randomly delay BEFORE asserting valid
+                    // 1. Starvation Phase: Randomly delay
                     if ($urandom_range(0,2) == 0) begin
                         s_tvalid <= 1'b0;
                         repeat($urandom_range(2, 6)) @(posedge clk);
                     end
 
-                    // 2. Drive Phase: Put data on bus and hold valid high
+                    // 2. Drive Phase
                     s_tdata  <= stimulus_queue[0];
                     s_tvalid <= 1'b1;
 
@@ -319,6 +319,7 @@ module tr_unpacker_tb;
                 end
             end
             begin
+                wait(start);
                 wait(done);
                 @(posedge clk);
                 check_memory("Test 4: AXI Starvation (Buffer Drain)");

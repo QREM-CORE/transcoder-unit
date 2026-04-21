@@ -149,7 +149,8 @@ module tr_unpacker #(
     assign axi_rx_fire = s_tvalid_i && s_tready_o;
 
     // We can write to memory if we have enough bits sliced and memory isn't stalled.
-    assign mem_wr_fire = (bit_count >= bits_per_cycle) && !poly_stall_i && (state == ST_INGEST);
+    // Ensure bits_per_cycle is valid (>0) before firing.
+    assign mem_wr_fire = (bits_per_cycle > 0) && (bit_count >= bits_per_cycle) && !poly_stall_i && (state == ST_INGEST);
 
     // Memory write assignments
     assign poly_req_o        = (state == ST_INGEST);
@@ -193,6 +194,29 @@ module tr_unpacker #(
     // ====================================================================
     // Datapath & Gearbox Sequential Logic
     // ====================================================================
+    logic [127:0] next_shift_reg;
+    logic [7:0]   next_bit_count;
+
+    always_comb begin
+        next_shift_reg = shift_reg;
+        next_bit_count = bit_count;
+
+        if (state == ST_INGEST) begin
+            // 1. Pop old bits if memory write succeeds
+            if (mem_wr_fire) begin
+                next_shift_reg = next_shift_reg >> bits_per_cycle;
+                next_bit_count = next_bit_count - bits_per_cycle;
+            end
+
+            // 2. Push new bits if AXI fire succeeds
+            if (axi_rx_fire) begin
+                // Force mask to exactly 64 bits of incoming data to prevent corruption
+                next_shift_reg = next_shift_reg | ((128'(s_tdata_i) & 128'hFFFF_FFFF_FFFF_FFFF) << next_bit_count);
+                next_bit_count = next_bit_count + 64;
+            end
+        end
+    end
+
     always_ff @(posedge clk) begin
         if (rst) begin
             d_param_reg <= '0;
@@ -214,29 +238,9 @@ module tr_unpacker #(
                 end
             end
             else if (state == ST_INGEST) begin
-
-                // Track memory write progress
                 if (mem_wr_fire) wr_counter <= wr_counter + 1;
-
-                // Gearbox Shift Register Operations
-                if (axi_rx_fire && mem_wr_fire) begin
-                    // Simultaneous Push and Pop
-                    // 1. Shift out the used bits
-                    // 2. OR in the new 64 bits offset by the remaining bit_count
-                    shift_reg <= (shift_reg >> bits_per_cycle) | (128'(s_tdata_i) << (128'(bit_count) - 128'(bits_per_cycle)));
-                    bit_count <= bit_count - bits_per_cycle + 64;
-                end
-                else if (axi_rx_fire) begin
-                    // Push only (Accumulate)
-                    shift_reg <= shift_reg | (128'(s_tdata_i) << bit_count);
-                    bit_count <= bit_count + 64;
-                end
-                else if (mem_wr_fire) begin
-                    // Pop only (Slice)
-                    shift_reg <= shift_reg >> bits_per_cycle;
-                    bit_count <= bit_count - bits_per_cycle;
-                end
-
+                shift_reg <= next_shift_reg;
+                bit_count <= next_bit_count;
             end
         end
     end
