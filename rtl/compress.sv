@@ -1,13 +1,14 @@
 /*
  * Module Name: compress
- * Author(s): Mai Komar, Kiet Le
+ * Author(s):   Mai Komar, Kiet Le
  * Description:
- *   4-lane parallel, bit-exact combinational FIPS 203 compression.
- *   Replaces generic constant division approximations with the exact
- *   Barrett bounds (M=161271, K=29) to eliminate runtime correction loops.
- *   To achieve lowest latency/area, the underlying 12x18 multiplier is
- *   hardcoded into a CSD adder-tree mathematically reduced from 6 standard
- *   terms to exactly 4 highly-symmetric ALU ops via term-recycling.
+ *   4-lane parallel, bit-exact sequential FIPS 203 compression.
+ *   Hardware-optimized Barrett reduction (M=161271) implemented via
+ *   a 2-stage pipelined CSD adder-tree to reduce logic depth.
+ *
+ * Architecture:
+ *   - Stage 1: Partial Barrett product (CSD term-recycling tree).
+ *   - Stage 2: Final shifting, rounding, and modulo-masking.
  */
 
 `default_nettype none
