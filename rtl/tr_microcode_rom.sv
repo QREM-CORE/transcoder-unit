@@ -34,13 +34,14 @@
 `default_nettype none
 `timescale 1ns / 1ps
 
+import qrem_global_pkg::*;
 import transcoder_pkg::*;
 
 module tr_microcode_rom #(
     parameter int POLY_ID_W = 6,
     parameter int SEED_ID_W = 4
 ) (
-    input  wire logic [4:0]           opcode_i,
+    input  wire tr_opcode_t           opcode_i,
     input  wire logic [1:0]           sec_level_i,
 
     // Parameter Outputs
@@ -112,7 +113,7 @@ module tr_microcode_rom #(
         router_math_sel_o   = 3'b000;
         router_bypass_sel_o = 3'b000;
 
-        case (tr_opcode_t'(opcode_i))
+        case (opcode_i)
             // --- KEYGEN ---
             TR_OP_KG_INGEST_D: begin
                 bypass_en_o         = 1'b1;

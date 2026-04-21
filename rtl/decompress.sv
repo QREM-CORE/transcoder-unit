@@ -11,6 +11,7 @@
  */
 
 `default_nettype none
+import qrem_global_pkg::*;
 import transcoder_pkg::*;
 
 // Decompress_d(y) = round(q * y / 2^d)

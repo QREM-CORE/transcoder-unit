@@ -12,6 +12,7 @@
  */
 
 `default_nettype none
+import qrem_global_pkg::*;
 import transcoder_pkg::*;
 
 // Compress_d(x) = round(2^d * x / q) mod 2^d

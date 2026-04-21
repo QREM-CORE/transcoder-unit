@@ -44,6 +44,9 @@
 `default_nettype none
 `timescale 1ns / 1ps
 
+import qrem_global_pkg::*;
+import transcoder_pkg::*;
+
 module tr_fsm #(
     parameter int POLY_ID_W  = 6,
     parameter int SEED_ID_W  = 4,
@@ -56,7 +59,7 @@ module tr_fsm #(
     input  wire logic                      ctrl_start_i,
     output      logic                      ctrl_done_o,
     input  wire logic [1:0]                ctrl_sec_level_i,
-    input  wire logic [4:0]                ctrl_opcode_i,
+    input  wire tr_opcode_t                ctrl_opcode_i,
 
     // Sub-Module Control: Packer
     output      logic                      packer_start_o,
@@ -99,7 +102,7 @@ module tr_fsm #(
     } state_t;
     state_t state, next_state;
 
-    logic [4:0] opcode_reg;
+    tr_opcode_t opcode_reg;
     logic [1:0] sec_level_reg;
     logic [2:0] k_counter;
     logic [7:0] beat_counter;
@@ -250,7 +253,7 @@ module tr_fsm #(
 
     always_ff @(posedge clk) begin
         if (rst) begin
-            opcode_reg    <= '0;
+            opcode_reg    <= TR_OP_KG_INGEST_D;
             sec_level_reg <= '0;
             k_counter     <= '0;
             beat_counter  <= '0;
