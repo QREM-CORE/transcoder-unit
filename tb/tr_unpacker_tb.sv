@@ -177,12 +177,26 @@ module tr_unpacker_tb;
     // Driver & Monitor Tasks
     // ====================================================================
     task automatic drive_axi();
+        // 1. Prime the pump immediately if queue has data
+        if (stimulus_queue.size() > 0) begin
+            s_tdata  <= stimulus_queue[0];
+            s_tvalid <= 1'b1;
+        end
+
         while (stimulus_queue.size() > 0) begin
             @(posedge clk);
-            if (s_tready || !s_tvalid) begin
-                s_tdata  <= stimulus_queue[0];
-                s_tvalid <= 1'b1;
-                if (s_tready && s_tvalid) stimulus_queue.pop_front();
+
+            // 2. If a handshake just occurred, pop and update
+            if (s_tready && s_tvalid) begin
+                stimulus_queue.pop_front();
+
+                if (stimulus_queue.size() > 0) begin
+                    s_tdata  <= stimulus_queue[0];
+                    s_tvalid <= 1'b1;
+                end else begin
+                    s_tvalid <= 1'b0;
+                    s_tdata  <= '0; // Clean the bus
+                end
             end
         end
         @(posedge clk);
