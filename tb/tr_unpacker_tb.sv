@@ -47,6 +47,9 @@ module tr_unpacker_tb;
     logic [3:0][7:0]           poly_wr_idx;
     logic [3:0][COEFF_W-1:0]   poly_wr_data;
 
+    // Stall generator enable flag (for Verilator-compatible Phase 3 tests)
+    logic mem_stall_gen_en;
+
     // ====================================================================
     // DUT Instantiation
     // ====================================================================
@@ -124,6 +127,14 @@ module tr_unpacker_tb;
     assert property (p_safe_mem_write) else $error("SVA: Attempted to write incomplete bits to memory!");
 
     // ====================================================================
+    // Stall Generator (always block — avoids fork/join in initial blocks)
+    // ====================================================================
+    // Randomly toggles poly_stall each cycle while mem_stall_gen_en is high
+    always @(posedge clk) begin
+        if (mem_stall_gen_en) poly_stall <= $urandom_range(0, 1);
+    end
+
+    // ====================================================================
     // Golden Model Oracle
     // ====================================================================
     logic [63:0] stimulus_queue [$];
@@ -179,8 +190,8 @@ module tr_unpacker_tb;
     task automatic drive_axi();
         // 1. Prime the pump immediately if queue has data
         if (stimulus_queue.size() > 0) begin
-            s_tdata  <= stimulus_queue[0];
-            s_tvalid <= 1'b1;
+            s_tdata  = stimulus_queue[0];
+            s_tvalid = 1'b1;
         end
 
         while (stimulus_queue.size() > 0) begin
@@ -191,16 +202,16 @@ module tr_unpacker_tb;
                 stimulus_queue.pop_front();
 
                 if (stimulus_queue.size() > 0) begin
-                    s_tdata  <= stimulus_queue[0];
-                    s_tvalid <= 1'b1;
+                    s_tdata  = stimulus_queue[0];
+                    s_tvalid = 1'b1;
                 end else begin
-                    s_tvalid <= 1'b0;
-                    s_tdata  <= '0; // Clean the bus
+                    s_tvalid = 1'b0;
+                    s_tdata  = '0;
                 end
             end
         end
         @(posedge clk);
-        s_tvalid <= 1'b0;
+        s_tvalid = 1'b0;
     endtask
 
     task automatic check_memory(input string test_name);
@@ -232,9 +243,7 @@ module tr_unpacker_tb;
         @(posedge clk) start = 1;
         @(posedge clk) start = 0;
 
-        fork
-            drive_axi();
-        join_none
+        drive_axi();
 
         wait(done);
         @(posedge clk);
@@ -250,7 +259,8 @@ module tr_unpacker_tb;
         start      = 0;
         s_tvalid   = 0;
         s_tdata    = 0;
-        poly_stall = 0;
+        poly_stall    = 0;
+        mem_stall_gen_en = 0;
         @(posedge clk); rst = 0; @(posedge clk);
 
         // ---------------------------------------------------------
@@ -272,73 +282,50 @@ module tr_unpacker_tb;
         // Phase 3: Backpressure & Flow Control
         // ---------------------------------------------------------
         $display("--- Phase 3: Severe SRAM Backpressure ---");
-        fork
-            run_test(11, "Test 3: Memory Stalls (Buffer Fill)");
-            begin
-                // Pulse poly_stall high to force the accumulator to fill up
-                repeat(20) begin
-                    @(posedge clk); poly_stall = 1;
-                    repeat($urandom_range(5, 15)) @(posedge clk);
-                    poly_stall = 0;
-                    repeat(2) @(posedge clk); // let it drain briefly
-                end
-            end
-        join
+        mem_stall_gen_en = 1;
+        run_test(11, "Test 3: Memory Stalls (Buffer Fill)");
+        mem_stall_gen_en = 0; poly_stall = 0;
 
         $display("--- Phase 3: AXI Starvation ---");
-        fork
-            // Test 4 uses the driver's natural wait states by injecting delays
-            begin
-                $display("Running Test 4: AXI Starvation (d=5)...");
-                d_param = 5;
-                clear_mock_mem();
-                generate_stimulus(5);
+        begin
+            $display("Running Test 4: AXI Starvation (d=5)...");
+            d_param = 5;
+            clear_mock_mem();
+            generate_stimulus(5);
 
-                @(posedge clk) start = 1;
-                @(posedge clk) start = 0;
+            @(posedge clk) start = 1;
+            @(posedge clk) start = 0;
 
-                while (stimulus_queue.size() > 0) begin
-                    // 1. Starvation Phase: Randomly delay
-                    if ($urandom_range(0,2) == 0) begin
-                        s_tvalid <= 1'b0;
-                        repeat($urandom_range(2, 6)) @(posedge clk);
-                    end
-
-                    // 2. Drive Phase
-                    s_tdata  <= stimulus_queue[0];
-                    s_tvalid <= 1'b1;
-
-                    // 3. Wait for the AXI Handshake
-                    do begin
-                        @(posedge clk);
-                    end while (!(s_tready && s_tvalid));
-
-                    // 4. Handshake complete! Pop queue and drop valid to allow starvation
-                    stimulus_queue.pop_front();
-                    s_tvalid <= 1'b0;
+            while (stimulus_queue.size() > 0) begin
+                // 1. Starvation Phase: Randomly delay
+                if ($urandom_range(0,2) == 0) begin
+                    s_tvalid = 1'b0;
+                    repeat($urandom_range(2, 6)) @(posedge clk);
                 end
+
+                // 2. Drive Phase
+                s_tdata  = stimulus_queue[0];
+                s_tvalid = 1'b1;
+
+                // 3. Wait for the AXI Handshake
+                do begin
+                    @(posedge clk);
+                end while (!(s_tready && s_tvalid));
+
+                // 4. Handshake complete! Pop queue and drop valid to allow starvation
+                stimulus_queue.pop_front();
+                s_tvalid = 1'b0;
             end
-            begin
-                wait(start);
-                wait(done);
-                @(posedge clk);
-                check_memory("Test 4: AXI Starvation (Buffer Drain)");
-            end
-        join
+
+            wait(done);
+            @(posedge clk);
+            check_memory("Test 4: AXI Starvation (Buffer Drain)");
+        end
 
         $display("--- Phase 3: The Jitter Test ---");
-        fork
-            run_test(10, "Test 5: Dual Randomized Stalls");
-            begin
-                // Note: s_tvalid jitter is handled by the starvation test.
-                // Here we randomize the memory stall aggressively.
-                repeat(200) begin
-                    @(posedge clk);
-                    poly_stall = $urandom_range(0, 1);
-                end
-                poly_stall = 0;
-            end
-        join
+        mem_stall_gen_en = 1;
+        run_test(10, "Test 5: Dual Randomized Stalls");
+        mem_stall_gen_en = 0; poly_stall = 0;
 
         $display("All tr_unpacker tests completed successfully.");
         $finish;

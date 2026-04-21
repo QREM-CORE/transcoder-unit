@@ -49,6 +49,10 @@ module tr_packer_tb;
     logic                      poly_rd_valid;
     logic [3:0][COEFF_W-1:0]   poly_rd_data;
 
+    // Stall generator enable flags (for Verilator-compatible Phase 3 tests)
+    logic axi_bp_gen_en;
+    logic mem_stall_gen_en;
+
     // ====================================================================
     // DUT Instantiation
     // ====================================================================
@@ -122,6 +126,19 @@ module tr_packer_tb;
                 poly_rd_data <= '0; // Optional: clean bus
             end
         end
+    end
+
+    // ====================================================================
+    // Stall Generators (always blocks — avoids fork/join in initial blocks)
+    // ====================================================================
+    // AXI backpressure: set m_tready on negedge so it's stable when DUT samples at posedge
+    always @(negedge clk) begin
+        if (axi_bp_gen_en) m_tready = $urandom_range(0, 1);
+    end
+
+    // Memory stall: randomly toggles poly_stall each cycle while enabled
+    always @(posedge clk) begin
+        if (mem_stall_gen_en) poly_stall <= $urandom_range(0, 1);
     end
 
     // ====================================================================
@@ -241,8 +258,10 @@ module tr_packer_tb;
         start      = 0;
         d_param    = 0;
         poly_id    = 0;
-        m_tready   = 1;
-        poly_stall = 0;
+        m_tready      = 1;
+        poly_stall    = 0;
+        axi_bp_gen_en    = 0;
+        mem_stall_gen_en = 0;
         @(posedge clk); rst = 0; @(posedge clk);
 
         // Populate Memory with Incrementing Data
@@ -268,43 +287,20 @@ module tr_packer_tb;
         // Phase 3: Backpressure & Flow Control
         // ---------------------------------------------------------
         $display("--- Phase 3: Severe AXI Backpressure ---");
-        fork
-            run_test(10, "Test 3: AXI Stalls");
-            begin
-                // Pulse m_tready low frequently to stress the inflight logic
-                repeat(50) begin
-                    @(posedge clk); m_tready = 0;
-                    repeat($urandom_range(2, 10)) @(posedge clk);
-                    m_tready = 1;
-                end
-            end
-        join
+        axi_bp_gen_en = 1;
+        run_test(10, "Test 3: AXI Stalls");
+        axi_bp_gen_en = 0; m_tready = 1;
 
         $display("--- Phase 3: Memory Starvation ---");
-        fork
-            run_test(11, "Test 4: SRAM Stalls");
-            begin
-                repeat(30) begin
-                    @(posedge clk); poly_stall = 1;
-                    repeat($urandom_range(1, 5)) @(posedge clk);
-                    poly_stall = 0;
-                end
-            end
-        join
+        mem_stall_gen_en = 1;
+        run_test(11, "Test 4: SRAM Stalls");
+        mem_stall_gen_en = 0; poly_stall = 0;
 
         $display("--- Phase 3: The Jitter Test ---");
-        fork
-            run_test(5, "Test 5: Dual Randomized Stalls");
-            begin
-                repeat(100) begin
-                    @(posedge clk);
-                    poly_stall = $urandom_range(0, 1);
-                    m_tready   = $urandom_range(0, 1);
-                end
-                poly_stall = 0;
-                m_tready   = 1;
-            end
-        join
+        axi_bp_gen_en = 1; mem_stall_gen_en = 1;
+        run_test(5, "Test 5: Dual Randomized Stalls");
+        axi_bp_gen_en = 0; mem_stall_gen_en = 0;
+        m_tready = 1; poly_stall = 0;
 
         $display("All tr_packer tests completed successfully.");
         $finish;
