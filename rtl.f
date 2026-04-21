@@ -9,3 +9,4 @@ rtl/compress.sv
 rtl/decompress.sv
 rtl/tr_router.sv
 rtl/tr_packer.sv
+rtl/tr_unpacker.sv
