@@ -223,7 +223,7 @@ module tr_unpacker #(
                     // Simultaneous Push and Pop
                     // 1. Shift out the used bits
                     // 2. OR in the new 64 bits offset by the remaining bit_count
-                    shift_reg <= (shift_reg >> bits_per_cycle) | (128'(s_tdata_i) << (bit_count - bits_per_cycle));
+                    shift_reg <= (shift_reg >> bits_per_cycle) | (128'(s_tdata_i) << (128'(bit_count) - 128'(bits_per_cycle)));
                     bit_count <= bit_count - bits_per_cycle + 64;
                 end
                 else if (axi_rx_fire) begin
