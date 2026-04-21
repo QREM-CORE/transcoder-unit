@@ -8,3 +8,4 @@ rtl/transcoder_pkg.sv
 rtl/compress.sv
 rtl/decompress.sv
 rtl/tr_router.sv
+rtl/tr_packer.sv
