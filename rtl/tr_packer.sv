@@ -64,6 +64,9 @@ module tr_packer #(
     logic [5:0]           rd_counter; // 0 to 63 (since 64 reads * 4 = 256 coeffs)
     logic                 read_fire;
 
+    // Pipeline handling for Sequential Compress
+    logic                 poly_rd_valid_q;
+
     // Gearbox registers
     logic [127:0]         shift_reg;
     logic [7:0]           bit_count;     // Current bits stored in shift_reg
@@ -76,6 +79,8 @@ module tr_packer #(
     logic [3:0][COEFF_W-1:0] comp_coeffs;
 
     compress u_compress (
+        .clk     (clk),
+        .rst     (rst),
         .coeff_i (poly_rd_data_i),
         .d_i     (d_param_reg),
         .coeff_o (comp_coeffs)
@@ -169,9 +174,11 @@ module tr_packer #(
             shift_reg     <= '0;
             bit_count     <= '0;
             inflight_bits <= '0;
+            poly_rd_valid_q <= 1'b0;
             done_o        <= 1'b0;
         end else begin
             done_o <= 1'b0; // Default off
+            poly_rd_valid_q <= poly_rd_valid_i;
 
             if (state == ST_IDLE) begin
                 if (start_i) begin
@@ -185,11 +192,11 @@ module tr_packer #(
                 if (read_fire) rd_counter <= rd_counter + 1;
 
                 // Track in-flight bits
-                if (read_fire && !poly_rd_valid_i)      inflight_bits <= inflight_bits + bits_per_cycle;
-                else if (!read_fire && poly_rd_valid_i) inflight_bits <= inflight_bits - bits_per_cycle;
+                if (read_fire && !poly_rd_valid_q)      inflight_bits <= inflight_bits + bits_per_cycle;
+                else if (!read_fire && poly_rd_valid_q) inflight_bits <= inflight_bits - bits_per_cycle;
 
                 // Gearbox Shift Register Operations
-                if (axim_tx_fire && poly_rd_valid_i) begin
+                if (axim_tx_fire && poly_rd_valid_q) begin
                     // Simultaneous Push and Pop
                     shift_reg <= (shift_reg >> 64) | (128'(packed_4d) << (bit_count - 64));
                     bit_count <= bit_count - 64 + bits_per_cycle;
@@ -199,7 +206,7 @@ module tr_packer #(
                     shift_reg <= shift_reg >> 64;
                     bit_count <= bit_count - 64;
                 end
-                else if (poly_rd_valid_i) begin
+                else if (poly_rd_valid_q) begin
                     // Push only
                     shift_reg <= shift_reg | (128'(packed_4d) << bit_count);
                     bit_count <= bit_count + bits_per_cycle;
