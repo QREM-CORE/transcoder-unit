@@ -298,20 +298,25 @@ module tr_unpacker_tb;
                 @(posedge clk) start = 0;
 
                 while (stimulus_queue.size() > 0) begin
-                    @(posedge clk);
-                    if (s_tready || !s_tvalid) begin
-                        s_tdata  <= stimulus_queue[0];
-                        s_tvalid <= 1'b1;
-                        if (s_tready && s_tvalid) stimulus_queue.pop_front();
-                    end
-                    // Randomly starve the stream
+                    // 1. Starvation Phase: Randomly delay BEFORE asserting valid
                     if ($urandom_range(0,2) == 0) begin
-                        @(posedge clk);
                         s_tvalid <= 1'b0;
                         repeat($urandom_range(2, 6)) @(posedge clk);
                     end
+
+                    // 2. Drive Phase: Put data on bus and hold valid high
+                    s_tdata  <= stimulus_queue[0];
+                    s_tvalid <= 1'b1;
+
+                    // 3. Wait for the AXI Handshake
+                    do begin
+                        @(posedge clk);
+                    end while (!(s_tready && s_tvalid));
+
+                    // 4. Handshake complete! Pop queue and drop valid to allow starvation
+                    stimulus_queue.pop_front();
+                    s_tvalid <= 1'b0;
                 end
-                @(posedge clk) s_tvalid <= 1'b0;
             end
             begin
                 wait(done);
