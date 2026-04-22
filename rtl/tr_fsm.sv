@@ -48,11 +48,7 @@
 import qrem_global_pkg::*;
 import transcoder_pkg::*;
 
-module tr_fsm #(
-    parameter int POLY_ID_W  = 6,
-    parameter int SEED_ID_W  = 4,
-    parameter int SEED_IDX_W = 3
-) (
+module tr_fsm (
     input  wire logic                      clk,
     input  wire logic                      rst,
 
@@ -66,13 +62,13 @@ module tr_fsm #(
     output      logic                      packer_start_o,
     input  wire logic                      packer_done_i,
     output      logic [3:0]                packer_d_param_o,
-    output      logic [POLY_ID_W-1:0]      packer_poly_id_o,
+    output      logic [POLY_ID_WIDTH-1:0]  packer_poly_id_o,
 
     // Sub-Module Control: Unpacker
     output      logic                      unpacker_start_o,
     input  wire logic                      unpacker_done_i,
     output      logic [3:0]                unpacker_d_param_o,
-    output      logic [POLY_ID_W-1:0]      unpacker_poly_id_o,
+    output      logic [POLY_ID_WIDTH-1:0]  unpacker_poly_id_o,
 
     // Sub-Module Control: Router
     output      router_sel_t               router_sel_o,
@@ -87,8 +83,8 @@ module tr_fsm #(
     // Top-Level Seed Protocol Store
     output      logic                      seed_req_o,
     output      logic                      seed_we_o,
-    output      logic [SEED_ID_W-1:0]      seed_id_o,
-    output      logic [SEED_IDX_W-1:0]     seed_idx_o,
+    output      seed_id_e                  seed_id_o,
+    output      logic [$clog2(SEED_BEATS)-1:0] seed_idx_o,
     input  wire logic                      seed_ready_i,
     input  wire logic                      seed_rvalid_i
 );
@@ -119,17 +115,14 @@ module tr_fsm #(
     logic                 cfg_math_k_loop;
     logic                 cfg_internal_math_en; // Triggers internal SeedBank tracking
     logic [3:0]           cfg_d_param;
-    logic [POLY_ID_W-1:0] cfg_poly_base_id;
+    logic [POLY_ID_WIDTH-1:0] cfg_poly_base_id;
     logic                 cfg_bypass_en;
-    logic [SEED_ID_W-1:0] cfg_seed_id;
+    seed_id_e             cfg_seed_id;
     logic [7:0]           cfg_bypass_beats;
     router_sel_t          cfg_router_math_sel;
     router_sel_t          cfg_router_bypass_sel;
 
-    tr_microcode_rom #(
-        .POLY_ID_W(POLY_ID_W),
-        .SEED_ID_W(SEED_ID_W)
-    ) u_rom (
+    tr_microcode_rom u_rom (
         .opcode_i            ((state == ST_IDLE) ? ctrl_opcode_i    : opcode_reg),
         .sec_level_i         ((state == ST_IDLE) ? ctrl_sec_level_i : sec_level_reg),
         .k_limit_o           (cfg_k_limit),
@@ -196,7 +189,7 @@ module tr_fsm #(
 
     // Drive SeedBank for both Bypass routing AND Internal Math routing
     assign seed_req_o = (state == ST_BYPASS) || (state == ST_MATH_WAIT && cfg_internal_math_en);
-    assign seed_idx_o = beat_counter[SEED_IDX_W-1:0];
+    assign seed_idx_o = beat_counter[$clog2(SEED_BEATS)-1:0];
     assign seed_id_o  = cfg_seed_id;
 
     // Write to SeedBank during AXI->SRAM bypass OR Packer->SRAM internal math

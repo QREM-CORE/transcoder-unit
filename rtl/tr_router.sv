@@ -41,6 +41,7 @@
 `default_nettype none
 `timescale 1ns / 1ps
 
+import qrem_global_pkg::*;
 import transcoder_pkg::*;
 
 module tr_router (

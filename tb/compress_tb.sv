@@ -11,10 +11,12 @@
 
 `timescale 1ns/1ps
 
+import qrem_global_pkg::*;
+
 module compress_tb;
 
     // Parameters
-    localparam int COEFF_WIDTH = 12;
+    // localparam int COEFF_WIDTH = 12;
 
     // DUT Interface Signals
     logic                        clk;

@@ -18,10 +18,9 @@
 `default_nettype none
 `timescale 1ns / 1ps
 
-module tr_unpacker #(
-    parameter int POLY_ID_W = 6,
-    parameter int COEFF_W   = 12
-) (
+import qrem_global_pkg::*;
+
+module tr_unpacker (
     input  wire logic                      clk,
     input  wire logic                      rst,
 
@@ -29,7 +28,7 @@ module tr_unpacker #(
     input  wire logic                      start_i,
     output      logic                      done_o,
     input  wire logic [3:0]                d_param_i,
-    input  wire logic [POLY_ID_W-1:0]      poly_id_i,
+    input  wire logic [POLY_ID_WIDTH-1:0]  poly_id_i,
 
     // Data Stream from Router (AXI RX)
     input  wire logic [63:0]               s_tdata_i,
@@ -40,9 +39,9 @@ module tr_unpacker #(
     output      logic                      poly_req_o,
     input  wire logic                      poly_stall_i,
     output      logic [3:0]                poly_wr_en_o,
-    output      logic [POLY_ID_W-1:0]      poly_wr_poly_id_o,
+    output      logic [POLY_ID_WIDTH-1:0]  poly_wr_poly_id_o,
     output      logic [3:0][7:0]           poly_wr_idx_o,
-    output      logic [3:0][COEFF_W-1:0]   poly_wr_data_o
+    output      logic [3:0][COEFF_WIDTH-1:0] poly_wr_data_o
 );
 
     // ====================================================================
@@ -56,7 +55,7 @@ module tr_unpacker #(
     state_t state, next_state;
 
     logic [3:0]           d_param_reg;
-    logic [POLY_ID_W-1:0] poly_id_reg;
+    logic [POLY_ID_WIDTH-1:0] poly_id_reg;
 
     // Memory tracking
     logic [5:0]           wr_counter; // 0 to 63 (64 writes * 4 = 256 coeffs)
@@ -70,7 +69,7 @@ module tr_unpacker #(
     // Dynamic Bit Slicer (ByteDecode_d)
     // ====================================================================
     logic [47:0]             sliced_bits;
-    logic [3:0][COEFF_W-1:0] decomp_in;
+    logic [3:0][COEFF_WIDTH-1:0] decomp_in;
 
     assign sliced_bits = shift_reg[47:0]; // Always observe the bottom bits
 
@@ -130,7 +129,7 @@ module tr_unpacker #(
     // ====================================================================
     // Decompress Instantiation
     // ====================================================================
-    logic [3:0][COEFF_W-1:0] decomp_out;
+    logic [3:0][COEFF_WIDTH-1:0] decomp_out;
 
     decompress u_decompress (
         .coeff_i (decomp_in),
@@ -182,7 +181,7 @@ module tr_unpacker #(
             end
             ST_INGEST: begin
                 // Transition out once the 64th write (index 63) successfully fires
-                if (mem_wr_fire && (wr_counter == 6'd63)) next_state = ST_DONE;
+                if (mem_wr_fire && (wr_counter == (NCOEFF/4 - 1))) next_state = ST_DONE;
             end
             ST_DONE: begin
                 next_state = ST_IDLE;

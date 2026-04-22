@@ -9,10 +9,11 @@
  */
 `timescale 1ns/1ps
 
+import qrem_global_pkg::*;
+
 module decompress_tb;
 
     // Parameters
-    localparam int COEFF_WIDTH = 12;
 
     // DUT Interface Signals
     logic [3:0][COEFF_WIDTH-1:0] coeff_i;

@@ -26,9 +26,6 @@ module tr_fsm_tb;
     // ====================================================================
     // Parameters & Signals
     // ====================================================================
-    parameter int POLY_ID_W  = 6;
-    parameter int SEED_ID_W  = 4;
-    parameter int SEED_IDX_W = 3;
 
     logic                      clk;
     logic                      rst;
@@ -43,13 +40,13 @@ module tr_fsm_tb;
     logic                      packer_start;
     logic                      packer_done;
     logic [3:0]                packer_d_param;
-    logic [POLY_ID_W-1:0]      packer_poly_id;
+    logic [POLY_ID_WIDTH-1:0]  packer_poly_id;
 
     // Unpacker
     logic                      unpacker_start;
     logic                      unpacker_done;
     logic [3:0]                unpacker_d_param;
-    logic [POLY_ID_W-1:0]      unpacker_poly_id;
+    logic [POLY_ID_WIDTH-1:0]  unpacker_poly_id;
 
     // Router
     router_sel_t               router_sel;
@@ -64,19 +61,15 @@ module tr_fsm_tb;
     // SeedBank
     logic                      seed_req;
     logic                      seed_we;
-    logic [SEED_ID_W-1:0]      seed_id;
-    logic [SEED_IDX_W-1:0]     seed_idx;
+    seed_id_e                  seed_id;
+    logic [$clog2(SEED_BEATS)-1:0] seed_idx;
     logic                      seed_ready;
     logic                      seed_rvalid;
 
     // ====================================================================
     // DUT Instantiation
     // ====================================================================
-    tr_fsm #(
-        .POLY_ID_W(POLY_ID_W),
-        .SEED_ID_W(SEED_ID_W),
-        .SEED_IDX_W(SEED_IDX_W)
-    ) dut (
+    tr_fsm dut (
         .clk                   (clk),
         .rst                   (rst),
 
