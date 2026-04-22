@@ -12,3 +12,6 @@ rtl/tr_packer.sv
 rtl/tr_unpacker.sv
 rtl/tr_fsm.sv
 rtl/tr_microcode_rom.sv
+
+# 4. Top Level
+rtl/transcoder_unit.sv
