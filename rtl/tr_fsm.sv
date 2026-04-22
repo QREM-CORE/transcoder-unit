@@ -130,8 +130,8 @@ module tr_fsm #(
         .POLY_ID_W(POLY_ID_W),
         .SEED_ID_W(SEED_ID_W)
     ) u_rom (
-        .opcode_i            (opcode_reg),
-        .sec_level_i         (sec_level_reg),
+        .opcode_i            ((state == ST_IDLE) ? ctrl_opcode_i    : opcode_reg),
+        .sec_level_i         ((state == ST_IDLE) ? ctrl_sec_level_i : sec_level_reg),
         .k_limit_o           (cfg_k_limit),
         .is_tx_o             (cfg_is_tx),
         .math_en_o           (cfg_math_en),
