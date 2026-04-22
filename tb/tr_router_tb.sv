@@ -18,14 +18,13 @@
 `default_nettype none
 `timescale 1ns / 1ps
 
+import qrem_global_pkg::*;
 import transcoder_pkg::*;
 
 module tr_router_tb;
 
-    // ====================================================================
     // Parameters & Signals
     // ====================================================================
-    parameter int SEED_W = 64;
 
     logic                clk;
     logic                rst;

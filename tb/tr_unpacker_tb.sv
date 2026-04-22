@@ -17,13 +17,13 @@
 `default_nettype none
 `timescale 1ns / 1ps
 
+import qrem_global_pkg::*;
+
 module tr_unpacker_tb;
 
     // ====================================================================
     // Parameters & Signals
     // ====================================================================
-    parameter int POLY_ID_W = 6;
-    parameter int COEFF_W   = 12;
 
     logic                      clk;
     logic                      rst;
@@ -32,7 +32,7 @@ module tr_unpacker_tb;
     logic                      start;
     logic                      done;
     logic [3:0]                d_param;
-    logic [POLY_ID_W-1:0]      poly_id;
+    logic [POLY_ID_WIDTH-1:0]  poly_id;
 
     // AXI RX
     logic [63:0]               s_tdata;
@@ -43,9 +43,9 @@ module tr_unpacker_tb;
     logic                      poly_req;
     logic                      poly_stall;
     logic [3:0]                poly_wr_en;
-    logic [POLY_ID_W-1:0]      poly_wr_poly_id;
+    logic [POLY_ID_WIDTH-1:0]  poly_wr_poly_id;
     logic [3:0][7:0]           poly_wr_idx;
-    logic [3:0][COEFF_W-1:0]   poly_wr_data;
+    logic [3:0][COEFF_WIDTH-1:0] poly_wr_data;
 
     // Stall generator enable flag (for Verilator-compatible Phase 3 tests)
     logic mem_stall_gen_en;
@@ -53,10 +53,7 @@ module tr_unpacker_tb;
     // ====================================================================
     // DUT Instantiation
     // ====================================================================
-    tr_unpacker #(
-        .POLY_ID_W(POLY_ID_W),
-        .COEFF_W(COEFF_W)
-    ) dut (
+    tr_unpacker dut (
         .clk                 (clk),
         .rst                 (rst),
         .start_i             (start),
@@ -85,7 +82,7 @@ module tr_unpacker_tb;
     // ====================================================================
     // Mock Polynomial Memory Subsystem
     // ====================================================================
-    logic [3:0][COEFF_W-1:0] mock_mem [0:63]; // 64 writes * 4 coeffs = 256
+    logic [3:0][COEFF_WIDTH-1:0] mock_mem [0:63]; // 64 writes * 4 coeffs = 256
 
     always_ff @(posedge clk) begin
         if (poly_wr_en[0]) mock_mem[poly_wr_idx[0][7:2]][0] <= poly_wr_data[0];

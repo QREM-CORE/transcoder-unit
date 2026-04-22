@@ -16,13 +16,12 @@
 `default_nettype none
 `timescale 1ns / 1ps
 
+import qrem_global_pkg::*;
+
 module tr_packer_tb;
 
-    // ====================================================================
     // Parameters & Signals
     // ====================================================================
-    parameter int POLY_ID_W   = 6;
-    parameter int COEFF_W     = 12;
     parameter int MEM_LATENCY = 1; // Simulated SRAM read latency
 
     logic                      clk;
@@ -32,7 +31,7 @@ module tr_packer_tb;
     logic                      start;
     logic                      done;
     logic [3:0]                d_param;
-    logic [POLY_ID_W-1:0]      poly_id;
+    logic [POLY_ID_WIDTH-1:0]  poly_id;
 
     // AXI TX
     logic [63:0]               m_tdata;
@@ -43,11 +42,11 @@ module tr_packer_tb;
     logic                      poly_req;
     logic                      poly_stall;
     logic                      poly_rd_en;
-    logic [POLY_ID_W-1:0]      poly_rd_poly_id;
+    logic [POLY_ID_WIDTH-1:0]  poly_rd_poly_id;
     logic [3:0][7:0]           poly_rd_idx;
     logic [3:0]                poly_rd_lane_valid;
     logic                      poly_rd_valid;
-    logic [3:0][COEFF_W-1:0]   poly_rd_data;
+    logic [3:0][COEFF_WIDTH-1:0] poly_rd_data;
 
     // Stall generator enable flags (for Verilator-compatible Phase 3 tests)
     logic axi_bp_gen_en;
@@ -56,10 +55,7 @@ module tr_packer_tb;
     // ====================================================================
     // DUT Instantiation
     // ====================================================================
-    tr_packer #(
-        .POLY_ID_W(POLY_ID_W),
-        .COEFF_W(COEFF_W)
-    ) dut (
+    tr_packer dut (
         .clk                 (clk),
         .rst                 (rst),
         .start_i             (start),
@@ -90,7 +86,7 @@ module tr_packer_tb;
     // ====================================================================
     // Mock Polynomial Memory Subsystem
     // ====================================================================
-    logic [3:0][COEFF_W-1:0] mock_mem [0:63]; // 64 reads * 4 coeffs = 256
+    logic [3:0][COEFF_WIDTH-1:0] mock_mem [0:63]; // 64 reads * 4 coeffs = 256
 
     // Pipeline to simulate SRAM read latency
     typedef struct packed {

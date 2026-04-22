@@ -39,10 +39,7 @@
 import qrem_global_pkg::*;
 import transcoder_pkg::*;
 
-module tr_microcode_rom #(
-    parameter int POLY_ID_W = 6,
-    parameter int SEED_ID_W = 4
-) (
+module tr_microcode_rom (
     input  wire tr_opcode_t           opcode_i,
     input  wire logic [1:0]           sec_level_i,
 
@@ -55,11 +52,11 @@ module tr_microcode_rom #(
     output      logic                 math_k_loop_o,
     output      logic                 internal_math_en_o,
     output      logic [3:0]           d_param_o,
-    output      logic [POLY_ID_W-1:0] poly_base_id_o,
+    output      logic [POLY_ID_WIDTH-1:0] poly_base_id_o,
 
     // Bypass Phase Configuration
     output      logic                 bypass_en_o,
-    output      logic [SEED_ID_W-1:0] seed_id_o,
+    output      seed_id_e             seed_id_o,
     output      logic [7:0]           bypass_beats_o,
 
     // Router Configuration
@@ -70,21 +67,12 @@ module tr_microcode_rom #(
     // ====================================================================
     // Memory & Seed Semantic Identifiers
     // ====================================================================
-    localparam logic [POLY_ID_W-1:0] MEM_S  = 6'd0;
-    localparam logic [POLY_ID_W-1:0] MEM_T  = 6'd4;
-    localparam logic [POLY_ID_W-1:0] MEM_U  = 6'd8;
-    localparam logic [POLY_ID_W-1:0] MEM_V  = 6'd12;
-    localparam logic [POLY_ID_W-1:0] MEM_W  = 6'd16;
-    localparam logic [POLY_ID_W-1:0] MEM_MU = 6'd20;
-
-    localparam logic [SEED_ID_W-1:0] SEED_D     = 4'd0;
-    localparam logic [SEED_ID_W-1:0] SEED_RHO   = 4'd1;
-    localparam logic [SEED_ID_W-1:0] SEED_M     = 4'd2;
-    localparam logic [SEED_ID_W-1:0] SEED_K     = 4'd3;
-    localparam logic [SEED_ID_W-1:0] SEED_Z     = 4'd4;
-    localparam logic [SEED_ID_W-1:0] SEED_K_BAR = 4'd5;
-    localparam logic [SEED_ID_W-1:0] SEED_R     = 4'd6;
-    localparam logic [SEED_ID_W-1:0] SEED_HEK   = 4'd7;
+    localparam logic [POLY_ID_WIDTH-1:0] MEM_S  = 5'd0;
+    localparam logic [POLY_ID_WIDTH-1:0] MEM_T  = 5'd4;
+    localparam logic [POLY_ID_WIDTH-1:0] MEM_U  = 5'd8;
+    localparam logic [POLY_ID_WIDTH-1:0] MEM_V  = 5'd12;
+    localparam logic [POLY_ID_WIDTH-1:0] MEM_W  = 5'd16;
+    localparam logic [POLY_ID_WIDTH-1:0] MEM_MU = 5'd20;
 
     // ====================================================================
     // Security Level Resolution
@@ -113,8 +101,8 @@ module tr_microcode_rom #(
         d_param_o           = 4'd12;
         poly_base_id_o      = '0;
         bypass_en_o         = 1'b0;
-        seed_id_o           = '0;
-        bypass_beats_o      = 8'd4; // 32 bytes = 4x 64-bit beats
+        seed_id_o           = seed_id_e'('0);
+        bypass_beats_o      = 8'(SEED_BEATS); // 32 bytes = 4x 64-bit beats
         router_math_sel_o   = TR_ROUTER_IDLE;
         router_bypass_sel_o = TR_ROUTER_IDLE;
 
@@ -130,7 +118,7 @@ module tr_microcode_rom #(
                 // Ingesting a 32-byte seed 'd'. No math required.
                 // We bypass straight from AXI-RX to the internal SeedBank.
                 bypass_en_o         = 1'b1;
-                seed_id_o           = SEED_D;
+                seed_id_o           = SEED_ID_D;
                 router_bypass_sel_o = TR_ROUTER_BYPASS_RX;
             end
             TR_OP_KG_EXPORT_DK_PKE: begin
@@ -156,14 +144,14 @@ module tr_microcode_rom #(
                 // Exporting part 2 of the encapsulation key (seed rho).
                 // Pure bypass from SeedBank out to Host.
                 bypass_en_o         = 1'b1;
-                seed_id_o           = SEED_RHO;
+                seed_id_o           = SEED_ID_RHO;
                 router_bypass_sel_o = TR_ROUTER_BYPASS_TX;
             end
             TR_OP_KG_EXPORT_HEK: begin
                 // Exporting the hash of the encapsulation key.
                 // Pure bypass from SeedBank out to Host.
                 bypass_en_o         = 1'b1;
-                seed_id_o           = SEED_HEK;
+                seed_id_o           = SEED_ID_HEK;
                 router_bypass_sel_o = TR_ROUTER_BYPASS_TX;
             end
 
@@ -174,7 +162,7 @@ module tr_microcode_rom #(
                 // Ingesting the 32-byte message 'm' from Host.
                 // Pure bypass from AXI-RX to SeedBank.
                 bypass_en_o         = 1'b1;
-                seed_id_o           = SEED_M;
+                seed_id_o           = SEED_ID_M;
                 router_bypass_sel_o = TR_ROUTER_BYPASS_RX;
             end
             TR_OP_EN_INGEST_EK_1: begin
@@ -190,7 +178,7 @@ module tr_microcode_rom #(
                 // Ingesting the 'rho' seed of the Encapsulation Key.
                 // Pure bypass from AXI-RX to SeedBank.
                 bypass_en_o         = 1'b1;
-                seed_id_o           = SEED_RHO;
+                seed_id_o           = SEED_ID_RHO;
                 router_bypass_sel_o = TR_ROUTER_BYPASS_RX;
             end
             TR_OP_EN_MSG_DEC: begin
@@ -203,7 +191,7 @@ module tr_microcode_rom #(
                 math_k_loop_o       = 1'b0;
                 d_param_o           = 4'd1;     // Decode_1 compression level
                 poly_base_id_o      = MEM_MU;
-                seed_id_o           = SEED_M;
+                seed_id_o           = SEED_ID_M;
                 router_math_sel_o   = TR_ROUTER_MATH_RX_FROM_SEEDBANK;
             end
             TR_OP_EN_EXPORT_CT_1: begin
@@ -232,7 +220,7 @@ module tr_microcode_rom #(
                 // Exporting the derived shared secret 'K'.
                 // Pure bypass from SeedBank out to Host.
                 bypass_en_o         = 1'b1;
-                seed_id_o           = SEED_K;
+                seed_id_o           = SEED_ID_K;
                 router_bypass_sel_o = TR_ROUTER_BYPASS_TX;
             end
 
@@ -270,7 +258,7 @@ module tr_microcode_rom #(
                 // Ingesting the implicit rejection seed 'z'.
                 // Pure bypass from AXI-RX to SeedBank.
                 bypass_en_o         = 1'b1;
-                seed_id_o           = SEED_Z;
+                seed_id_o           = SEED_ID_Z;
                 router_bypass_sel_o = TR_ROUTER_BYPASS_RX;
             end
             TR_OP_DC_MSG_ENC: begin
@@ -284,25 +272,25 @@ module tr_microcode_rom #(
                 math_k_loop_o       = 1'b0;
                 d_param_o           = 4'd1;
                 poly_base_id_o      = MEM_W;
-                seed_id_o           = SEED_M;
+                seed_id_o           = SEED_ID_M;
                 router_math_sel_o   = TR_ROUTER_MATH_TX_TO_SEEDBANK;
             end
             TR_OP_DC_EXPORT_K: begin
                 // Exporting final shared secret 'K' (Successful Decap).
                 bypass_en_o         = 1'b1;
-                seed_id_o           = SEED_K;
+                seed_id_o           = SEED_ID_K;
                 router_bypass_sel_o = TR_ROUTER_BYPASS_TX;
             end
             TR_OP_DC_EXPORT_K_BAR: begin
                 // Exporting implicit rejection secret 'K-bar' (Failed Decap).
                 bypass_en_o         = 1'b1;
-                seed_id_o           = SEED_K_BAR;
+                seed_id_o           = SEED_ID_K_BAR;
                 router_bypass_sel_o = TR_ROUTER_BYPASS_TX;
             end
             TR_OP_DC_EXPORT_R: begin
                 // Exporting re-encryption seed 'r'.
                 bypass_en_o         = 1'b1;
-                seed_id_o           = SEED_R;
+                seed_id_o           = SEED_ID_R;
                 router_bypass_sel_o = TR_ROUTER_BYPASS_TX;
             end
             default: begin end

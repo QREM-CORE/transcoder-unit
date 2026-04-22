@@ -18,10 +18,9 @@
 `default_nettype none
 `timescale 1ns / 1ps
 
-module tr_packer #(
-    parameter int POLY_ID_W = 6,
-    parameter int COEFF_W   = 12
-) (
+import qrem_global_pkg::*;
+
+module tr_packer (
     input  wire logic                      clk,
     input  wire logic                      rst,
 
@@ -29,7 +28,7 @@ module tr_packer #(
     input  wire logic                      start_i,
     output      logic                      done_o,
     input  wire logic [3:0]                d_param_i,
-    input  wire logic [POLY_ID_W-1:0]      poly_id_i,
+    input  wire logic [POLY_ID_WIDTH-1:0]  poly_id_i,
 
     // Data Stream to Router (AXI TX)
     output      logic [63:0]               m_tdata_o,
@@ -40,11 +39,11 @@ module tr_packer #(
     output      logic                      poly_req_o,
     input  wire logic                      poly_stall_i,
     output      logic                      poly_rd_en_o,
-    output      logic [POLY_ID_W-1:0]      poly_rd_poly_id_o,
+    output      logic [POLY_ID_WIDTH-1:0]  poly_rd_poly_id_o,
     output      logic [3:0][7:0]           poly_rd_idx_o,
     output      logic [3:0]                poly_rd_lane_valid_o,
     input  wire logic                      poly_rd_valid_i,
-    input  wire logic [3:0][COEFF_W-1:0]   poly_rd_data_i
+    input  wire logic [3:0][COEFF_WIDTH-1:0] poly_rd_data_i
 );
 
     // ====================================================================
@@ -58,7 +57,7 @@ module tr_packer #(
     state_t state, next_state;
 
     logic [3:0]           d_param_reg;
-    logic [POLY_ID_W-1:0] poly_id_reg;
+    logic [POLY_ID_WIDTH-1:0] poly_id_reg;
 
     // Memory tracking
     logic [5:0]           rd_counter; // 0 to 63 (since 64 reads * 4 = 256 coeffs)
@@ -76,7 +75,7 @@ module tr_packer #(
     // ====================================================================
     // Compress Instantiation
     // ====================================================================
-    logic [3:0][COEFF_W-1:0] comp_coeffs;
+    logic [3:0][COEFF_WIDTH-1:0] comp_coeffs;
 
     compress u_compress (
         .clk     (clk),
@@ -147,7 +146,7 @@ module tr_packer #(
                 if (start_i) next_state = ST_READING;
             end
             ST_READING: begin
-                if (read_fire && (rd_counter == 6'd63)) next_state = ST_DRAINING;
+                if (read_fire && (rd_counter == (NCOEFF/4 - 1))) next_state = ST_DRAINING;
             end
             ST_DRAINING: begin
                 // Done when all in-flight memory returns and buffer is empty

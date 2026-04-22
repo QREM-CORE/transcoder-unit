@@ -12,13 +12,7 @@
 import qrem_global_pkg::*;
 import transcoder_pkg::*;
 
-module transcoder_unit #(
-    parameter int POLY_ID_W  = 6,
-    parameter int SEED_ID_W  = 4,
-    parameter int SEED_IDX_W = 3,
-    parameter int SEED_W     = 64,
-    parameter int COEFF_W    = 12
-) (
+module transcoder_unit (
     input  wire logic                            clk,
     input  wire logic                            rst,
 
@@ -40,30 +34,30 @@ module transcoder_unit #(
 
     // Read Request Channel (For Compress/Encode) - Driven by Packer
     output      logic                            poly_rd_en_o,
-    output      logic [POLY_ID_W-1:0]            poly_rd_poly_id_o,
+    output      logic [POLY_ID_WIDTH-1:0]        poly_rd_poly_id_o,
     output      logic [3:0][7:0]                 poly_rd_idx_o,
     output      logic [3:0]                      poly_rd_lane_valid_o,
 
     // Write Request Channel (For Decode/Decompress) - Driven by Unpacker
     output      logic [3:0]                      poly_wr_en_o,
-    output      logic [POLY_ID_W-1:0]            poly_wr_poly_id_o,
+    output      logic [POLY_ID_WIDTH-1:0]        poly_wr_poly_id_o,
     output      logic [3:0][7:0]                 poly_wr_idx_o,
-    output      logic [3:0][11:0]                poly_wr_data_o,
+    output      logic [3:0][COEFF_WIDTH-1:0]     poly_wr_data_o,
 
     // Read Response Channel (Data returning from memory) -> Packer
     input  wire logic                            poly_rd_valid_i,
-    input  wire logic [POLY_ID_W-1:0]            poly_rd_poly_id_i,
+    input  wire logic [POLY_ID_WIDTH-1:0]        poly_rd_poly_id_i,
     input  wire logic [3:0][7:0]                 poly_rd_idx_i,
     input  wire logic [3:0]                      poly_rd_lane_valid_i,
-    input  wire logic [3:0][11:0]                poly_rd_data_i,
+    input  wire logic [3:0][COEFF_WIDTH-1:0]     poly_rd_data_i,
 
     // ==========================================
     // Seed / Protocol Store Interface (ID-Based)
     // ==========================================
     output      logic                            seed_req_o,
     output      logic                            seed_we_o,
-    output      logic [SEED_ID_W-1:0]            seed_id_o,
-    output      logic [SEED_IDX_W-1:0]           seed_idx_o,
+    output      seed_id_e                        seed_id_o,
+    output      logic [$clog2(SEED_BEATS)-1:0]   seed_idx_o,
     output      logic [SEED_W-1:0]               seed_wdata_o,
     input  wire logic                            seed_ready_i,
 
@@ -105,13 +99,13 @@ module transcoder_unit #(
     logic                 packer_start;
     logic                 packer_done;
     logic [3:0]           packer_d_param;
-    logic [POLY_ID_W-1:0] packer_poly_id;
+    logic [POLY_ID_WIDTH-1:0] packer_poly_id;
     logic                 packer_poly_req;
 
     logic                 unpacker_start;
     logic                 unpacker_done;
     logic [3:0]           unpacker_d_param;
-    logic [POLY_ID_W-1:0] unpacker_poly_id;
+    logic [POLY_ID_WIDTH-1:0] unpacker_poly_id;
     logic                 unpacker_poly_req;
 
     // FSM <-> Router
@@ -150,11 +144,7 @@ module transcoder_unit #(
     // ====================================================================
 
     // 1. The Micro-Sequencer
-    tr_fsm #(
-        .POLY_ID_W(POLY_ID_W),
-        .SEED_ID_W(SEED_ID_W),
-        .SEED_IDX_W(SEED_IDX_W)
-    ) u_tr_fsm (
+    tr_fsm u_tr_fsm (
         .clk                   (clk),
         .rst                   (rst),
 
@@ -233,10 +223,7 @@ module transcoder_unit #(
     );
 
     // 3. Mathematical TX Engine (Compress/Encode)
-    tr_packer #(
-        .POLY_ID_W(POLY_ID_W),
-        .COEFF_W(COEFF_W)
-    ) u_tr_packer (
+    tr_packer u_tr_packer (
         .clk                   (clk),
         .rst                   (rst),
 
@@ -263,10 +250,7 @@ module transcoder_unit #(
     );
 
     // 4. Mathematical RX Engine (Decode/Decompress)
-    tr_unpacker #(
-        .POLY_ID_W(POLY_ID_W),
-        .COEFF_W(COEFF_W)
-    ) u_tr_unpacker (
+    tr_unpacker u_tr_unpacker (
         .clk                   (clk),
         .rst                   (rst),
 
