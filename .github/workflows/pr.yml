@@ -19,7 +19,7 @@ jobs:
       commit_sha: ${{ github.sha }}
 
       # Your comma-separated top modules for the Yosys synthesis matrix
-      top_modules: 'tr_router,tr_packer,tr_unpacker'
+      top_modules: 'tr_router,tr_packer,tr_unpacker,tr_fsm'
 
       enable_synth: true
       enable_lint: true
