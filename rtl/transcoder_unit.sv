@@ -69,8 +69,6 @@ module transcoder_unit #(
 
     // Read Response Channel
     input  logic                            seed_rvalid_i,
-    input  logic [SEED_ID_W-1:0]            seed_rdata_id_i, // (Currently unused by FSM, relies on strict ordering)
-    input  logic [SEED_IDX_W-1:0]           seed_rdata_idx_i,// (Currently unused by FSM, relies on strict ordering)
     input  logic [SEED_W-1:0]               seed_rdata_i,
 
     // ==========================================
