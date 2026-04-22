@@ -1,9 +1,43 @@
 /*
  * Module Name: transcoder_unit
  * Author(s):   Kiet Le
- * Description: Top level module for the ML-KEM transcoder unit.
- * Integrates the Control Path (FSM, Microcode ROM), Datapath Crossbar (Router),
- * and Mathematical Engines (Packer, Unpacker) into a single decoupled architecture.
+ *
+ * Description:
+ *   This is the top-level module for the ML-KEM transcoder unit. Its primary
+ *   purpose is to handle the decoding, encoding, compression, and decompression
+ *   of polynomials used within the ML-KEM cryptographic algorithm. By decoupling
+ *   the control path from the mathematical datapath, the transcoder provides a
+ *   flexible, high-throughput pipeline.
+ *
+ * Architecture:
+ *   The transcoder unit is composed of four main interconnected sub-modules:
+ *   1. tr_fsm (Microdecoder/Sequencer): The central control unit that decodes
+ *      incoming operational codes (`ctrl_opcode`) and orchestrates the routing
+ *      and math engines.
+ *   2. tr_router (Datapath Crossbar): A flexible interconnect that routes data
+ *      between the external AXI4-Stream interfaces, the mathematical engines,
+ *      and the internal seed/protocol store.
+ *   3. tr_packer (TX Engine): Reads polynomial coefficients from the internal
+ *      PolyMem, performs the requisite compression/encoding, and streams the
+ *      resulting byte sequence out through the router.
+ *   4. tr_unpacker (RX Engine): Absorbs an incoming byte stream via the router,
+ *      decodes/decompresses it into polynomial coefficients, and writes them
+ *      into the internal PolyMem.
+ *
+ * Usage / Interface:
+ *   - Control: To initiate an operation, the host must set `ctrl_sec_level`
+ *     (00: ML-KEM-512, 01: ML-KEM-768, 10: ML-KEM-1024) and `ctrl_opcode`, then
+ *     trigger `ctrl_start`. The operation is complete when `ctrl_done` is
+ *     asserted.
+ *   - Memory: The transcoder interfaces with an external or top-level
+ *     Polynomial Memory (PolyMem) via a 4-lane wide data bus (4x12-bits = 48 bits)
+ *     for reading and writing structural polynomial coefficients.
+ *   - Host Data: It uses standard AXI4-Stream (`s_axis_*` and `m_axis_*`) to
+ *     ingest inbound seed/byte data and emit outbound encoded ciphertexts or
+ *     public keys.
+ *   - Hash Snoop: An auxiliary interface (`hash_snoop_*`) allows the transcoder
+ *     to snoop and stream specific data segments directly into a Keccak core
+ *     during operations that require simultaneous hashing.
  */
 
 `default_nettype none

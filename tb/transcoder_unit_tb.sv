@@ -150,7 +150,7 @@ module transcoder_unit_tb;
 
     // --- BFM 1: PolyMem Subsystem Emulator (Pipelined) ---
     logic [COEFF_WIDTH-1:0] mock_poly_ram [0:NUM_POLYS-1][0:NCOEFF-1];
-    
+
     localparam POLY_LATENCY = 2;
     logic [POLY_LATENCY-1:0] poly_vld_pipe;
     logic [POLY_ID_WIDTH-1:0] poly_id_pipe [POLY_LATENCY];
