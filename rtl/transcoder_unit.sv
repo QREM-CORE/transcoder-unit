@@ -19,82 +19,82 @@ module transcoder_unit #(
     parameter int SEED_W     = 64,
     parameter int COEFF_W    = 12
 ) (
-    input  logic                            clk,
-    input  logic                            rst,
+    input  wire logic                            clk,
+    input  wire logic                            rst,
 
     // ==========================================
     // Control Interface (From Main FSM)
     // ==========================================
-    input  logic                            ctrl_start,
-    output logic                            ctrl_done,
-    input  logic [1:0]                      ctrl_sec_level, // 00: ML-KEM-512, 01: 768, 10: 1024
-    input  logic [4:0]                      ctrl_opcode,
+    input  wire logic                            ctrl_start,
+    output      logic                            ctrl_done,
+    input  wire logic [1:0]                      ctrl_sec_level, // 00: ML-KEM-512, 01: 768, 10: 1024
+    input  wire logic [4:0]                      ctrl_opcode,
 
     // ==========================================
     // Polynomial Memory Interface (Internal)
     // 4 coefficients per cycle = 4 * 12 bits = 48 bits
     // ==========================================
     // Global Memory Control
-    output logic                            poly_req_o,
-    input  logic                            poly_stall_i,
+    output      logic                            poly_req_o,
+    input  wire logic                            poly_stall_i,
 
     // Read Request Channel (For Compress/Encode) - Driven by Packer
-    output logic                            poly_rd_en_o,
-    output logic [POLY_ID_W-1:0]            poly_rd_poly_id_o,
-    output logic [3:0][7:0]                 poly_rd_idx_o,
-    output logic [3:0]                      poly_rd_lane_valid_o,
+    output      logic                            poly_rd_en_o,
+    output      logic [POLY_ID_W-1:0]            poly_rd_poly_id_o,
+    output      logic [3:0][7:0]                 poly_rd_idx_o,
+    output      logic [3:0]                      poly_rd_lane_valid_o,
 
     // Write Request Channel (For Decode/Decompress) - Driven by Unpacker
-    output logic [3:0]                      poly_wr_en_o,
-    output logic [POLY_ID_W-1:0]            poly_wr_poly_id_o,
-    output logic [3:0][7:0]                 poly_wr_idx_o,
-    output logic [3:0][11:0]                poly_wr_data_o,
+    output      logic [3:0]                      poly_wr_en_o,
+    output      logic [POLY_ID_W-1:0]            poly_wr_poly_id_o,
+    output      logic [3:0][7:0]                 poly_wr_idx_o,
+    output      logic [3:0][11:0]                poly_wr_data_o,
 
     // Read Response Channel (Data returning from memory) -> Packer
-    input  logic                            poly_rd_valid_i,
-    input  logic [POLY_ID_W-1:0]            poly_rd_poly_id_i,
-    input  logic [3:0][7:0]                 poly_rd_idx_i,
-    input  logic [3:0]                      poly_rd_lane_valid_i,
-    input  logic [3:0][11:0]                poly_rd_data_i,
+    input  wire logic                            poly_rd_valid_i,
+    input  wire logic [POLY_ID_W-1:0]            poly_rd_poly_id_i,
+    input  wire logic [3:0][7:0]                 poly_rd_idx_i,
+    input  wire logic [3:0]                      poly_rd_lane_valid_i,
+    input  wire logic [3:0][11:0]                poly_rd_data_i,
 
     // ==========================================
     // Seed / Protocol Store Interface (ID-Based)
     // ==========================================
-    output logic                            seed_req_o,
-    output logic                            seed_we_o,
-    output logic [SEED_ID_W-1:0]            seed_id_o,
-    output logic [SEED_IDX_W-1:0]           seed_idx_o,
-    output logic [SEED_W-1:0]               seed_wdata_o,
-    input  logic                            seed_ready_i,
+    output      logic                            seed_req_o,
+    output      logic                            seed_we_o,
+    output      logic [SEED_ID_W-1:0]            seed_id_o,
+    output      logic [SEED_IDX_W-1:0]           seed_idx_o,
+    output      logic [SEED_W-1:0]               seed_wdata_o,
+    input  wire logic                            seed_ready_i,
 
     // Read Response Channel
-    input  logic                            seed_rvalid_i,
-    input  logic [SEED_W-1:0]               seed_rdata_i,
+    input  wire logic                            seed_rvalid_i,
+    input  wire logic [SEED_W-1:0]               seed_rdata_i,
 
     // ==========================================
     // HASH SNOOP INTERFACE - TRANSCODER -> KECCAK
     // ==========================================
-    output logic [63:0]                     hash_snoop_data_o,
-    output logic [7:0]                      hash_snoop_keep_o,
-    output logic                            hash_snoop_valid_o,
-    input  logic                            hash_snoop_ready_i,
-    output logic                            hash_snoop_last_o,
+    output      logic [63:0]                     hash_snoop_data_o,
+    output      logic [7:0]                      hash_snoop_keep_o,
+    output      logic                            hash_snoop_valid_o,
+    input  wire logic                            hash_snoop_ready_i,
+    output      logic                            hash_snoop_last_o,
 
     // ==========================================
     // External Data Stream (Host / Keccak Hash)
     // ==========================================
     // AXI4-Stream Ingest (Host -> Transcoder)
-    input  logic [63:0]                     s_axis_tdata,
-    input  logic                            s_axis_tvalid,
-    output logic                            s_axis_tready,
-    input  logic                            s_axis_tlast,
+    input  wire logic [63:0]                     s_axis_tdata,
+    input  wire logic                            s_axis_tvalid,
+    output      logic                            s_axis_tready,
+    input  wire logic                            s_axis_tlast,
 
     // AXI4-Stream Egest (Transcoder -> Host)
-    output logic [63:0]                     m_axis_tdata,
-    output logic                            m_axis_tvalid,
-    input  logic                            m_axis_tready,
-    output logic [7:0]                      m_axis_tkeep,
-    output logic                            m_axis_tlast
+    output      logic [63:0]                     m_axis_tdata,
+    output      logic                            m_axis_tvalid,
+    input  wire logic                            m_axis_tready,
+    output      logic [7:0]                      m_axis_tkeep,
+    output      logic                            m_axis_tlast
 );
 
     // ====================================================================
