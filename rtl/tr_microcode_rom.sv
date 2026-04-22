@@ -60,8 +60,8 @@ module tr_microcode_rom #(
     output      logic [7:0]           bypass_beats_o,
 
     // Router Configuration
-    output      logic [2:0]           router_math_sel_o,
-    output      logic [2:0]           router_bypass_sel_o
+    output      router_sel_t          router_math_sel_o,
+    output      router_sel_t          router_bypass_sel_o
 );
 
     // ====================================================================
@@ -110,54 +110,54 @@ module tr_microcode_rom #(
         bypass_en_o         = 1'b0;
         seed_id_o           = '0;
         bypass_beats_o      = 8'd4; // 32 bytes = 4x 64-bit beats
-        router_math_sel_o   = 3'b000;
-        router_bypass_sel_o = 3'b000;
+        router_math_sel_o   = TR_ROUTER_IDLE;
+        router_bypass_sel_o = TR_ROUTER_IDLE;
 
         case (opcode_i)
             // --- KEYGEN ---
             TR_OP_KG_INGEST_D: begin
                 bypass_en_o         = 1'b1;
                 seed_id_o           = SEED_D;
-                router_bypass_sel_o = 3'b110; // RAW_BYPASS_RX
+                router_bypass_sel_o = TR_ROUTER_BYPASS_RX;
             end
             TR_OP_KG_EXPORT_DK_PKE: begin
                 math_en_o           = 1'b1;
                 is_tx_o             = 1'b1;
                 math_k_loop_o       = 1'b1;
                 poly_base_id_o      = MEM_S;
-                router_math_sel_o   = 3'b001; // MATH_TX
+                router_math_sel_o   = TR_ROUTER_MATH_TX;
             end
             TR_OP_KG_EXPORT_EK_PKE: begin
                 math_en_o           = 1'b1;
                 is_tx_o             = 1'b1;
                 math_k_loop_o       = 1'b1;
                 poly_base_id_o      = MEM_T;
-                router_math_sel_o   = 3'b010; // MATH_TX_SNOOP
+                router_math_sel_o   = TR_ROUTER_MATH_TX_SNOOP;
                 bypass_en_o         = 1'b1;
                 seed_id_o           = SEED_RHO;
-                router_bypass_sel_o = 3'b101; // RAW_BYPASS_TX
+                router_bypass_sel_o = TR_ROUTER_BYPASS_TX;
             end
 
             // --- ENCAP ---
             TR_OP_EN_INGEST_M: begin
                 bypass_en_o         = 1'b1;
                 seed_id_o           = SEED_M;
-                router_bypass_sel_o = 3'b110;
+                router_bypass_sel_o = TR_ROUTER_BYPASS_RX;
             end
             TR_OP_EN_INGEST_EK: begin
                 math_en_o           = 1'b1;
                 math_k_loop_o       = 1'b1;
                 poly_base_id_o      = MEM_T;
-                router_math_sel_o   = 3'b100; // MATH_RX_SNOOP
+                router_math_sel_o   = TR_ROUTER_MATH_RX_SNOOP;
                 bypass_en_o         = 1'b1;
                 seed_id_o           = SEED_RHO;
-                router_bypass_sel_o = 3'b110; // RAW_BYPASS_RX
+                router_bypass_sel_o = TR_ROUTER_BYPASS_RX;
             end
             TR_OP_EN_MSG_DEC: begin
                 math_en_o           = 1'b1;
                 d_param_o           = 4'd1;
                 poly_base_id_o      = MEM_MU;
-                router_math_sel_o   = 3'b011; // MATH_RX
+                router_math_sel_o   = TR_ROUTER_MATH_RX;
             end
             TR_OP_EN_EXPORT_CT_1: begin
                 math_en_o           = 1'b1;
@@ -165,19 +165,19 @@ module tr_microcode_rom #(
                 math_k_loop_o       = 1'b1;
                 d_param_o           = cfg_du;
                 poly_base_id_o      = MEM_U;
-                router_math_sel_o   = 3'b001; // MATH_TX
+                router_math_sel_o   = TR_ROUTER_MATH_TX;
             end
             TR_OP_EN_EXPORT_CT_2: begin
                 math_en_o           = 1'b1;
                 is_tx_o             = 1'b1;
                 d_param_o           = cfg_dv;
                 poly_base_id_o      = MEM_V;
-                router_math_sel_o   = 3'b001; // MATH_TX
+                router_math_sel_o   = TR_ROUTER_MATH_TX;
             end
             TR_OP_EN_EXPORT_K: begin
                 bypass_en_o         = 1'b1;
                 seed_id_o           = SEED_K;
-                router_bypass_sel_o = 3'b101; // RAW_BYPASS_TX
+                router_bypass_sel_o = TR_ROUTER_BYPASS_TX;
             end
 
             // --- DECAP ---
@@ -185,47 +185,47 @@ module tr_microcode_rom #(
                 math_en_o           = 1'b1;
                 math_k_loop_o       = 1'b1;
                 poly_base_id_o      = MEM_S;
-                router_math_sel_o   = 3'b011; // MATH_RX
+                router_math_sel_o   = TR_ROUTER_MATH_RX;
             end
             TR_OP_DC_INGEST_C1: begin
                 math_en_o           = 1'b1;
                 math_k_loop_o       = 1'b1;
                 d_param_o           = cfg_du;
                 poly_base_id_o      = MEM_U;
-                router_math_sel_o   = 3'b011; // MATH_RX
+                router_math_sel_o   = TR_ROUTER_MATH_RX;
             end
             TR_OP_DC_INGEST_C2: begin
                 math_en_o           = 1'b1;
                 d_param_o           = cfg_dv;
                 poly_base_id_o      = MEM_V;
-                router_math_sel_o   = 3'b011; // MATH_RX
+                router_math_sel_o   = TR_ROUTER_MATH_RX;
             end
             TR_OP_DC_INGEST_Z: begin
                 bypass_en_o         = 1'b1;
                 seed_id_o           = SEED_Z;
-                router_bypass_sel_o = 3'b110;
+                router_bypass_sel_o = TR_ROUTER_BYPASS_RX;
             end
             TR_OP_DC_MSG_ENC: begin
                 math_en_o           = 1'b1;
                 is_tx_o             = 1'b1;
                 d_param_o           = 4'd1;
                 poly_base_id_o      = MEM_W;
-                router_math_sel_o   = 3'b001; // MATH_TX
+                router_math_sel_o   = TR_ROUTER_MATH_TX;
             end
             TR_OP_DC_EXPORT_K: begin
                 bypass_en_o         = 1'b1;
                 seed_id_o           = SEED_K;
-                router_bypass_sel_o = 3'b101;
+                router_bypass_sel_o = TR_ROUTER_BYPASS_TX;
             end
             TR_OP_DC_EXPORT_K_BAR: begin
                 bypass_en_o         = 1'b1;
                 seed_id_o           = SEED_K_BAR;
-                router_bypass_sel_o = 3'b101;
+                router_bypass_sel_o = TR_ROUTER_BYPASS_TX;
             end
             TR_OP_DC_EXPORT_R: begin
                 bypass_en_o         = 1'b1;
                 seed_id_o           = SEED_R;
-                router_bypass_sel_o = 3'b101;
+                router_bypass_sel_o = TR_ROUTER_BYPASS_TX;
             end
             default: begin end
         endcase

@@ -74,7 +74,7 @@ module tr_fsm #(
     output      logic [POLY_ID_W-1:0]      unpacker_poly_id_o,
 
     // Sub-Module Control: Router
-    output      logic [2:0]                router_sel_o,
+    output      router_sel_t               router_sel_o,
     output      logic                      router_tlast_o,
 
     // Data Handshake Snooping
@@ -119,8 +119,8 @@ module tr_fsm #(
     logic                 cfg_bypass_en;
     logic [SEED_ID_W-1:0] cfg_seed_id;
     logic [7:0]           cfg_bypass_beats;
-    logic [2:0]           cfg_router_math_sel;
-    logic [2:0]           cfg_router_bypass_sel;
+    router_sel_t          cfg_router_math_sel;
+    router_sel_t          cfg_router_bypass_sel;
 
     tr_microcode_rom #(
         .POLY_ID_W(POLY_ID_W),
@@ -149,7 +149,7 @@ module tr_fsm #(
 
     always_comb begin
         if (state == ST_BYPASS) begin
-            active_axi_fire = (cfg_router_bypass_sel == 3'b101) ? axi_tx_vld_rdy_i : axi_rx_vld_rdy_i;
+            active_axi_fire = (cfg_router_bypass_sel == TR_ROUTER_BYPASS_TX) ? axi_tx_vld_rdy_i : axi_rx_vld_rdy_i;
         end else if (state == ST_MATH_WAIT) begin
             active_axi_fire = (cfg_is_tx) ? axi_tx_vld_rdy_i : axi_rx_vld_rdy_i;
         end else begin
@@ -187,16 +187,16 @@ module tr_fsm #(
     assign seed_req_o = (state == ST_BYPASS);
     assign seed_idx_o = beat_counter[SEED_IDX_W-1:0];
     assign seed_id_o  = cfg_seed_id;
-    assign seed_we_o  = (state == ST_BYPASS) && (cfg_router_bypass_sel == 3'b110) && axi_rx_vld_rdy_i;
+    assign seed_we_o  = (state == ST_BYPASS) && (cfg_router_bypass_sel == TR_ROUTER_BYPASS_RX) && axi_rx_vld_rdy_i;
 
     always_comb begin
-        router_sel_o = 3'b000;
+        router_sel_o = TR_ROUTER_IDLE;
         if (state == ST_MATH_START || state == ST_MATH_WAIT) begin
             router_sel_o = cfg_router_math_sel;
         end
         else if (state == ST_BYPASS) begin
-            if (cfg_router_bypass_sel == 3'b101 && !seed_rvalid_i) begin
-                router_sel_o = 3'b000;
+            if (cfg_router_bypass_sel == TR_ROUTER_BYPASS_TX && !seed_rvalid_i) begin
+                router_sel_o = TR_ROUTER_IDLE;
             end else begin
                 router_sel_o = cfg_router_bypass_sel;
             end

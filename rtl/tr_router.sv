@@ -41,9 +41,11 @@
 `default_nettype none
 `timescale 1ns / 1ps
 
+import transcoder_pkg::*;
+
 module tr_router (
     // Control
-    input  wire logic [3:0]                router_sel_i,
+    input  wire router_sel_t               router_sel_i,
     input  wire logic                      router_tlast_i,
 
     // AXI4-Stream RX (Host -> Transcoder)
@@ -82,6 +84,15 @@ module tr_router (
     input  wire logic                      seed_ready_i
 );
 
+    // ====================================================================
+    // Static Assignments
+    // ====================================================================
+    // FIPS 203 artifacts (EK, DK, CT, Messages) are all strictly
+    // byte-aligned and perfectly divisible by 8 bytes (64 bits).
+    // Therefore, tkeep is permanently tied high.
+    assign m_axis_tkeep_o    = 8'hFF;
+    assign hash_snoop_keep_o = 8'hFF;
+
     always_comb begin
         // Default Assignments (IDLE / Safe State)
         s_axis_tready_o    = 1'b0;
@@ -102,18 +113,18 @@ module tr_router (
         seed_wdata_o       = '0;
 
         case (router_sel_i)
-            4'b0000: begin // IDLE
+            TR_ROUTER_IDLE: begin
                 // Defaults hold
             end
 
-            4'b0001: begin // Packer -> AXI TX
+            TR_ROUTER_MATH_TX: begin // Packer -> AXI TX
                 m_axis_tdata_o  = packer_tdata_i;
                 m_axis_tvalid_o = packer_tvalid_i;
                 m_axis_tlast_o  = router_tlast_i;
                 packer_tready_o = m_axis_tready_i;
             end
 
-            4'b0010: begin // Packer -> AXI TX & Hash Snoop
+            TR_ROUTER_MATH_TX_SNOOP: begin // Packer -> AXI TX & Hash Snoop
                 m_axis_tdata_o     = packer_tdata_i;
                 m_axis_tvalid_o    = packer_tvalid_i;
                 m_axis_tlast_o     = router_tlast_i;
@@ -125,13 +136,13 @@ module tr_router (
                 packer_tready_o    = m_axis_tready_i & hash_snoop_ready_i;
             end
 
-            4'b0011: begin // AXI RX -> Unpacker
+            TR_ROUTER_MATH_RX: begin // AXI RX -> Unpacker
                 unpacker_tdata_o  = s_axis_tdata_i;
                 unpacker_tvalid_o = s_axis_tvalid_i;
                 s_axis_tready_o   = unpacker_tready_i;
             end
 
-            4'b0100: begin // AXI RX -> Unpacker & Hash Snoop
+            TR_ROUTER_MATH_RX_SNOOP: begin // AXI RX -> Unpacker & Hash Snoop
                 unpacker_tdata_o   = s_axis_tdata_i;
                 unpacker_tvalid_o  = s_axis_tvalid_i;
 
@@ -143,7 +154,7 @@ module tr_router (
                 s_axis_tready_o    = unpacker_tready_i & hash_snoop_ready_i;
             end
 
-            4'b0101: begin // SeedBank -> AXI TX (Bypass)
+            TR_ROUTER_BYPASS_TX: begin // SeedBank -> AXI TX (Bypass)
                 m_axis_tdata_o  = seed_rdata_i;
                 // In bypass mode, the FSM is responsible for incrementing the seed
                 // address and ensuring data is valid. We route the rvalid directly.
@@ -151,17 +162,17 @@ module tr_router (
                 m_axis_tlast_o  = router_tlast_i;
             end
 
-            4'b0110: begin // AXI RX -> SeedBank (Bypass)
+            TR_ROUTER_BYPASS_RX: begin // AXI RX -> SeedBank (Bypass)
                 seed_wdata_o    = s_axis_tdata_i;
                 s_axis_tready_o = seed_ready_i;
             end
 
-            4'b0111: begin // SeedBank -> Unpacker (Internal Crossbar)
+            TR_ROUTER_MATH_RX_FROM_SEEDBANK: begin // SeedBank -> Unpacker (Internal Crossbar)
                 unpacker_tdata_o  = seed_rdata_i;
                 unpacker_tvalid_o = seed_rvalid_i;
             end
 
-            4'b1000: begin // Packer -> SeedBank (Internal Crossbar)
+            TR_ROUTER_MATH_TX_TO_SEEDBANK: begin // Packer -> SeedBank (Internal Crossbar)
                 seed_wdata_o    = packer_tdata_i;
                 packer_tready_o = seed_ready_i;
             end

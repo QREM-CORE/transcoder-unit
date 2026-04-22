@@ -18,6 +18,8 @@
 `default_nettype none
 `timescale 1ns / 1ps
 
+import transcoder_pkg::*;
+
 module tr_router_tb;
 
     // ====================================================================
@@ -29,7 +31,7 @@ module tr_router_tb;
     logic                rst;
 
     // Control
-    logic [3:0]          router_sel; // Updated to 4-bit
+    router_sel_t         router_sel;
     logic                router_tlast;
 
     // AXI-Stream RX
@@ -117,7 +119,7 @@ module tr_router_tb;
     // ====================================================================
     task reset_signals();
         rst              = 1;
-        router_sel       = 4'b0000;
+        router_sel       = TR_ROUTER_IDLE;
         router_tlast     = 0;
         s_axis_tdata     = '0;
         s_axis_tvalid    = 0;
@@ -194,7 +196,7 @@ module tr_router_tb;
         // Test 0: IDLE Mode
         // ---------------------------------------------------------
         $display("[TEST 0] IDLE Mode Verification");
-        router_sel = 4'b0000;
+        router_sel = TR_ROUTER_IDLE;
         // axi_rx_d, axi_rx_v, pack_d, pack_v, seed_d, seed_rv, tlast
         drive_stimulus(64'hAAAA, 1, 64'hBBBB, 1, 64'hCCCC, 1, 1);
         set_dest_ready(1, 1, 1, 1);
@@ -209,33 +211,33 @@ module tr_router_tb;
         $display("[TEST 1] Single-Destination Verification");
 
         @(posedge clk);
-        router_sel = 4'b0001; // MATH_TX
+        router_sel = TR_ROUTER_MATH_TX; // MATH_TX
         #1;
         if (m_axis_tdata !== 64'hBBBB || m_axis_tvalid !== 1) $error("MATH_TX Routing Failed!");
 
         @(posedge clk);
-        router_sel = 4'b0011; // MATH_RX
+        router_sel = TR_ROUTER_MATH_RX; // MATH_RX
         #1;
         if (unpacker_tdata !== 64'hAAAA || unpacker_tvalid !== 1) $error("MATH_RX Routing Failed!");
 
         @(posedge clk);
-        router_sel = 4'b0101; // RAW_BYPASS_TX
+        router_sel = TR_ROUTER_BYPASS_TX; // RAW_BYPASS_TX
         #1;
         if (m_axis_tdata !== 64'hCCCC || m_axis_tvalid !== 1) $error("BYPASS_TX Routing Failed!");
 
         @(posedge clk);
-        router_sel = 4'b0110; // RAW_BYPASS_RX
+        router_sel = TR_ROUTER_BYPASS_RX; // RAW_BYPASS_RX
         #1;
         if (seed_wdata !== 64'hAAAA || s_axis_tready !== 1) $error("BYPASS_RX Routing Failed!");
 
         // --- NEW INTERNAL CROSSBAR TESTS ---
         @(posedge clk);
-        router_sel = 4'b0111; // MATH_RX_FROM_SEEDBANK
+        router_sel = TR_ROUTER_MATH_RX_FROM_SEEDBANK; // MATH_RX_FROM_SEEDBANK
         #1;
         if (unpacker_tdata !== 64'hCCCC || unpacker_tvalid !== 1) $error("MATH_RX_FROM_SEEDBANK Routing Failed!");
 
         @(posedge clk);
-        router_sel = 4'b1000; // MATH_TX_TO_SEEDBANK
+        router_sel = TR_ROUTER_MATH_TX_TO_SEEDBANK; // MATH_TX_TO_SEEDBANK
         #1;
         if (seed_wdata !== 64'hBBBB || packer_tready !== 1) $error("MATH_TX_TO_SEEDBANK Routing Failed!");
 
@@ -244,7 +246,7 @@ module tr_router_tb;
         // ---------------------------------------------------------
         $display("[TEST 2] Backpressure Matrix Verification");
         @(posedge clk);
-        router_sel = 4'b0010; // MATH_TX_SNOOP
+        router_sel = TR_ROUTER_MATH_TX_SNOOP; // MATH_TX_SNOOP
 
         // Both Ready
         set_dest_ready(1, 1, 0, 1); #1;
@@ -259,12 +261,12 @@ module tr_router_tb;
         if (packer_tready !== 0) $error("Mode 2: Failed to stall when Snoop stalled");
 
         // ---------------------------------------------------------
-        // Test 3: Randomized Stress Test (Firehose)
+        // Test 3: Randomized Stress Test (100 Cycles)
         // ---------------------------------------------------------
         $display("[TEST 3] Randomized Stress Test (100 Cycles)");
         for (int i = 0; i < 100; i++) begin
             @(posedge clk);
-            router_sel    = $urandom_range(0, 8); // Now testing all 8 active modes
+            router_sel    = router_sel_t'($urandom_range(0, 8)); // Now testing all 8 active modes
             router_tlast  = $urandom_range(0, 1);
             s_axis_tdata  = {$urandom(), $urandom()};
             packer_tdata  = {$urandom(), $urandom()};
@@ -285,26 +287,27 @@ module tr_router_tb;
     // Checks output states on the negative edge, after comb logic settles
     always @(negedge clk) begin
         case (router_sel)
-            4'b0001: begin
+            TR_ROUTER_MATH_TX: begin
                 if (m_axis_tdata !== packer_tdata) $error("Checker: m_axis_tdata mismatch in Mode 1");
                 if (packer_tready !== m_axis_tready) $error("Checker: backpressure mismatch in Mode 1");
             end
-            4'b0010: begin
+            TR_ROUTER_MATH_TX_SNOOP: begin
                 if (m_axis_tdata !== packer_tdata) $error("Checker: m_axis_tdata mismatch in Mode 2");
                 if (hash_snoop_data !== packer_tdata) $error("Checker: snoop data mismatch in Mode 2");
             end
-            4'b0011: begin
+            TR_ROUTER_MATH_RX: begin
                 if (unpacker_tdata !== s_axis_tdata) $error("Checker: unpacker_tdata mismatch in Mode 3");
             end
-            4'b0111: begin // New Mode Check
+            TR_ROUTER_MATH_RX_FROM_SEEDBANK: begin // New Mode Check
                 if (unpacker_tdata !== seed_rdata) $error("Checker: unpacker_tdata mismatch in Mode 7");
                 if (unpacker_tvalid !== seed_rvalid) $error("Checker: unpacker_tvalid mismatch in Mode 7");
             end
-            4'b1000: begin // New Mode Check
+            TR_ROUTER_MATH_TX_TO_SEEDBANK: begin // New Mode Check
                 if (seed_wdata !== packer_tdata) $error("Checker: seed_wdata mismatch in Mode 8");
                 if (packer_tready !== seed_ready) $error("Checker: backpressure mismatch in Mode 8");
             end
             // ... Additional precise scoreboard checks can be added here
+            default: ;
         endcase
     end
 
