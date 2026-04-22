@@ -148,17 +148,48 @@ module transcoder_unit_tb;
     // Bus Functional Models (BFMs)
     // ====================================================================
 
-    // --- BFM 1: PolyMem Subsystem Emulator ---
+    // --- BFM 1: PolyMem Subsystem Emulator (Pipelined) ---
     logic [COEFF_WIDTH-1:0] mock_poly_ram [0:NUM_POLYS-1][0:NCOEFF-1];
-    int poly_read_latency;
+    
+    localparam POLY_LATENCY = 2;
+    logic [POLY_LATENCY-1:0] poly_vld_pipe;
+    logic [POLY_ID_WIDTH-1:0] poly_id_pipe [POLY_LATENCY];
+    logic [3:0][7:0]          poly_idx_pipe [POLY_LATENCY];
+    logic [3:0]               poly_lane_vld_pipe [POLY_LATENCY];
+
     assign poly_stall = 1'b0;
 
     always_ff @(posedge clk) begin
         if (rst) begin
+            poly_vld_pipe <= '0;
             poly_rd_valid <= 0;
-            poly_read_latency <= 0;
         end else begin
-            poly_rd_valid <= 0;
+            // Pop
+            poly_rd_valid           <= poly_vld_pipe[0];
+            poly_rd_poly_id_resp    <= poly_id_pipe[0];
+            poly_rd_idx_resp        <= poly_idx_pipe[0];
+            poly_rd_lane_valid_resp <= poly_lane_vld_pipe[0];
+            for (int i=0; i<4; i++) begin
+                poly_rd_data[i] <= mock_poly_ram[poly_id_pipe[0]][poly_idx_pipe[0][i]];
+            end
+
+            // Shift
+            for (int i=0; i<POLY_LATENCY-1; i++) begin
+                poly_vld_pipe[i]      <= poly_vld_pipe[i+1];
+                poly_id_pipe[i]       <= poly_id_pipe[i+1];
+                poly_idx_pipe[i]      <= poly_idx_pipe[i+1];
+                poly_lane_vld_pipe[i] <= poly_lane_vld_pipe[i+1];
+            end
+
+            // Push (Read)
+            if (poly_req && poly_rd_en) begin
+                poly_vld_pipe[POLY_LATENCY-1]      <= 1'b1;
+                poly_id_pipe[POLY_LATENCY-1]       <= poly_rd_poly_id;
+                poly_idx_pipe[POLY_LATENCY-1]      <= poly_rd_idx;
+                poly_lane_vld_pipe[POLY_LATENCY-1] <= poly_rd_lane_valid;
+            end else begin
+                poly_vld_pipe[POLY_LATENCY-1]      <= 1'b0;
+            end
 
             // Handle Writes (Immediate)
             if (poly_req && (|poly_wr_en)) begin
@@ -166,52 +197,43 @@ module transcoder_unit_tb;
                     if (poly_wr_en[i]) mock_poly_ram[poly_wr_poly_id][poly_wr_idx[i]] <= poly_wr_data[i];
                 end
             end
-
-            // Handle Reads (With Latency Shielding)
-            if (poly_req && poly_rd_en && poly_read_latency == 0 && !poly_rd_valid) begin
-                poly_read_latency <= $urandom_range(1, 3); // 1-3 cycle latency
-            end else if (poly_read_latency > 0) begin
-                poly_read_latency <= poly_read_latency - 1;
-                if (poly_read_latency == 1) begin
-                    poly_rd_valid <= 1;
-                    poly_rd_poly_id_resp <= poly_rd_poly_id;
-                    poly_rd_idx_resp <= poly_rd_idx;
-                    poly_rd_lane_valid_resp <= poly_rd_lane_valid;
-                    for (int i=0; i<4; i++) begin
-                        poly_rd_data[i] <= mock_poly_ram[poly_rd_poly_id][poly_rd_idx[i]];
-                    end
-                end
-            end
         end
     end
 
-    // --- BFM 2: SeedBank Emulator ---
+    // --- BFM 2: SeedBank Emulator (Pipelined) ---
     logic [SEED_W-1:0] mock_seed_ram [0:15][0:SEED_BEATS-1];
-    int seed_read_latency;
+
+    localparam SEED_LATENCY = 2;
+    logic [SEED_LATENCY-1:0] seed_vld_pipe;
+    logic [SEED_W-1:0]        seed_data_pipe [SEED_LATENCY];
+
     assign seed_ready = 1'b1;
 
     always_ff @(posedge clk) begin
         if (rst) begin
-            seed_rvalid <= 0;
-            seed_read_latency <= 0;
+            seed_vld_pipe <= '0;
+            seed_rvalid   <= 0;
         end else begin
-            seed_rvalid <= 0;
+            // Pop
+            seed_rvalid <= seed_vld_pipe[0];
+            seed_rdata  <= seed_data_pipe[0];
 
-            // Handle Writes
-            if (seed_req && seed_we) mock_seed_ram[seed_id][seed_idx] <= seed_wdata;
-
-            // Handle Reads
-            if (seed_req && !seed_we && seed_read_latency == 0 && !seed_rvalid) begin
-                seed_read_latency <= $urandom_range(1, 2);
-            end else if (seed_read_latency > 0) begin
-                seed_read_latency <= seed_read_latency - 1;
-                if (seed_read_latency == 1) begin
-                    seed_rvalid <= 1;
-                    seed_rdata  <= mock_seed_ram[seed_id][seed_idx];
-                end
-            end else if (!seed_req) begin
-                seed_read_latency <= 0;
+            // Shift
+            for (int i=0; i<SEED_LATENCY-1; i++) begin
+                seed_vld_pipe[i] <= seed_vld_pipe[i+1];
+                seed_data_pipe[i] <= seed_data_pipe[i+1];
             end
+
+            // Push (Read)
+            if (seed_req && !seed_we) begin
+                seed_vld_pipe[SEED_LATENCY-1] <= 1'b1;
+                seed_data_pipe[SEED_LATENCY-1] <= mock_seed_ram[seed_id][seed_idx];
+            end else begin
+                seed_vld_pipe[SEED_LATENCY-1] <= 1'b0;
+            end
+
+            // Handle Writes (Immediate)
+            if (seed_req && seed_we) mock_seed_ram[seed_id][seed_idx] <= seed_wdata;
         end
     end
 
