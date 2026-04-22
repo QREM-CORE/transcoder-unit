@@ -166,13 +166,6 @@ module tr_microcode_rom #(
                 seed_id_o           = SEED_HEK;
                 router_bypass_sel_o = TR_ROUTER_BYPASS_TX;
             end
-            TR_OP_KG_EXPORT_Z: begin
-                // Exporting the random seed 'z' generated during KeyGen.
-                // Pure bypass from SeedBank out to Host.
-                bypass_en_o         = 1'b1;
-                seed_id_o           = SEED_Z;
-                router_bypass_sel_o = TR_ROUTER_BYPASS_TX;
-            end
 
             // ==========================================
             // ENCAP OPCODES

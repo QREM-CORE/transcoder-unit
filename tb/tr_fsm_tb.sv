@@ -7,9 +7,10 @@
  *
  * Verification Architecture:
  * - Datapath BFMs: Clock-synchronous state machines simulate math latencies,
- * SRAM read delays, and AXI handshakes. (100% fork/join free for Verilator CI).
- * - Exhaustive Sweep: Automatically sweeps all 18 opcodes across all 3
- * security levels (54 combinations) to guarantee 100% Instruction Coverage.
+ * SRAM read delays, and AXI handshakes.
+ * (100% fork/join free for Verilator CI).
+ * - Exhaustive Sweep: Automatically sweeps all 21 opcodes across all 3
+ * security levels (63 combinations) to guarantee 100% Instruction Coverage.
  * - SVA Monitors: Concurrent assertions ensure precise protocol compliance,
  * strict TLAST timing, and SRAM latency shielding.
  */
@@ -51,12 +52,14 @@ module tr_fsm_tb;
     logic [POLY_ID_W-1:0]      unpacker_poly_id;
 
     // Router
-    logic [2:0]                router_sel;
+    router_sel_t               router_sel;
     logic                      router_tlast;
 
-    // AXI Bus Snoops
+    // Data Bus Snoops
     logic                      axi_rx_vld_rdy;
     logic                      axi_tx_vld_rdy;
+    logic                      internal_rx_vld_rdy; // NEW: Mock SeedBank->Unpacker
+    logic                      internal_tx_vld_rdy; // NEW: Mock Packer->SeedBank
 
     // SeedBank
     logic                      seed_req;
@@ -74,35 +77,38 @@ module tr_fsm_tb;
         .SEED_ID_W(SEED_ID_W),
         .SEED_IDX_W(SEED_IDX_W)
     ) dut (
-        .clk                (clk),
-        .rst                (rst),
-        .ctrl_start_i       (ctrl_start),
-        .ctrl_done_o        (ctrl_done),
-        .ctrl_sec_level_i   (ctrl_sec_level),
-        .ctrl_opcode_i      (ctrl_opcode),
+        .clk                   (clk),
+        .rst                   (rst),
 
-        .packer_start_o     (packer_start),
-        .packer_done_i      (packer_done),
-        .packer_d_param_o   (packer_d_param),
-        .packer_poly_id_o   (packer_poly_id),
+        .ctrl_start_i          (ctrl_start),
+        .ctrl_done_o           (ctrl_done),
+        .ctrl_sec_level_i      (ctrl_sec_level),
+        .ctrl_opcode_i         (ctrl_opcode),
 
-        .unpacker_start_o   (unpacker_start),
-        .unpacker_done_i    (unpacker_done),
-        .unpacker_d_param_o (unpacker_d_param),
-        .unpacker_poly_id_o (unpacker_poly_id),
+        .packer_start_o        (packer_start),
+        .packer_done_i         (packer_done),
+        .packer_d_param_o      (packer_d_param),
+        .packer_poly_id_o      (packer_poly_id),
 
-        .router_sel_o       (router_sel),
-        .router_tlast_o     (router_tlast),
+        .unpacker_start_o      (unpacker_start),
+        .unpacker_done_i       (unpacker_done),
+        .unpacker_d_param_o    (unpacker_d_param),
+        .unpacker_poly_id_o    (unpacker_poly_id),
 
-        .axi_rx_vld_rdy_i   (axi_rx_vld_rdy),
-        .axi_tx_vld_rdy_i   (axi_tx_vld_rdy),
+        .router_sel_o          (router_sel),
+        .router_tlast_o        (router_tlast),
 
-        .seed_req_o         (seed_req),
-        .seed_we_o          (seed_we),
-        .seed_id_o          (seed_id),
-        .seed_idx_o         (seed_idx),
-        .seed_ready_i       (seed_ready),
-        .seed_rvalid_i      (seed_rvalid)
+        .axi_rx_vld_rdy_i      (axi_rx_vld_rdy),
+        .axi_tx_vld_rdy_i      (axi_tx_vld_rdy),
+        .internal_rx_vld_rdy_i (internal_rx_vld_rdy),
+        .internal_tx_vld_rdy_i (internal_tx_vld_rdy),
+
+        .seed_req_o            (seed_req),
+        .seed_we_o             (seed_we),
+        .seed_id_o             (seed_id),
+        .seed_idx_o            (seed_idx),
+        .seed_ready_i          (seed_ready),
+        .seed_rvalid_i         (seed_rvalid)
     );
 
     // ====================================================================
@@ -150,7 +156,8 @@ module tr_fsm_tb;
             seed_rvalid <= 0;
         end else begin
             if (seed_req && !seed_we && !seed_rvalid && seed_delay == 0) begin
-                seed_delay <= $urandom_range(1, 4); // Simulate 1-4 cycle SRAM read latency
+                seed_delay <= $urandom_range(1, 4);
+                // Simulate 1-4 cycle SRAM read latency
             end else if (seed_delay > 0) begin
                 seed_delay <= seed_delay - 1;
                 if (seed_delay == 1) seed_rvalid <= 1;
@@ -161,22 +168,30 @@ module tr_fsm_tb;
         end
     end
 
-    // 3. AXI Handshake BFM
+    // 3. Data Handshake BFM (AXI & Internal Crossbar)
     always_ff @(posedge clk) begin
         if (rst) begin
-            axi_tx_vld_rdy <= 0;
-            axi_rx_vld_rdy <= 0;
+            axi_tx_vld_rdy      <= 0;
+            axi_rx_vld_rdy      <= 0;
+            internal_tx_vld_rdy <= 0;
+            internal_rx_vld_rdy <= 0;
         end else begin
-            axi_tx_vld_rdy <= 0;
-            axi_rx_vld_rdy <= 0;
+            axi_tx_vld_rdy      <= 0;
+            axi_rx_vld_rdy      <= 0;
+            internal_tx_vld_rdy <= 0;
+            internal_rx_vld_rdy <= 0;
 
             // Only fire handshakes if the Router is actively mapping a path
-            if (router_sel != 3'b000) begin
+            if (router_sel != TR_ROUTER_IDLE) begin
                 if ($urandom_range(0, 2) != 0) begin // 66% chance of handshake success
-                    if (router_sel == 3'b001 || router_sel == 3'b010 || router_sel == 3'b101) begin
+                    if (router_sel == TR_ROUTER_MATH_TX || router_sel == TR_ROUTER_MATH_TX_SNOOP || router_sel == TR_ROUTER_BYPASS_TX) begin
                         axi_tx_vld_rdy <= 1;
-                    end else if (router_sel == 3'b011 || router_sel == 3'b100 || router_sel == 3'b110) begin
+                    end else if (router_sel == TR_ROUTER_MATH_RX || router_sel == TR_ROUTER_MATH_RX_SNOOP || router_sel == TR_ROUTER_BYPASS_RX) begin
                         axi_rx_vld_rdy <= 1;
+                    end else if (router_sel == TR_ROUTER_MATH_TX_TO_SEEDBANK) begin
+                        internal_tx_vld_rdy <= 1;
+                    end else if (router_sel == TR_ROUTER_MATH_RX_FROM_SEEDBANK) begin
+                        internal_rx_vld_rdy <= 1;
                     end
                 end
             end
@@ -190,8 +205,8 @@ module tr_fsm_tb;
     // If we are in bypass TX mode but SRAM data isn't ready, router MUST be isolated.
     property p_latency_shield;
         @(posedge clk) disable iff (rst)
-        (dut.state == 3'd3 && dut.cfg_router_bypass_sel == 3'b101 && !seed_rvalid)
-        |-> (router_sel == 3'b000);
+        (dut.state == 3'd3 && dut.cfg_router_bypass_sel == TR_ROUTER_BYPASS_TX && !seed_rvalid)
+        |-> (router_sel == TR_ROUTER_IDLE);
     endproperty
     assert property (p_latency_shield) else $error("SVA: FSM leaked invalid SeedBank data to AXI TX!");
 
@@ -212,7 +227,7 @@ module tr_fsm_tb;
 
     task automatic run_opcode_test(input tr_opcode_t op, input int sec);
         // Skip unused/NOP opcodes to keep logs clean
-        if (op == 3) return;
+        if (op == TR_OP_IDLE) return;
 
         ctrl_opcode    = op;
         ctrl_sec_level = sec[1:0];
@@ -246,7 +261,7 @@ module tr_fsm_tb;
         // Initialize
         rst            = 1;
         ctrl_start     = 0;
-        ctrl_opcode    = TR_OP_KG_INGEST_D;
+        ctrl_opcode    = TR_OP_IDLE;
         ctrl_sec_level = 0;
         @(posedge clk);
         rst            = 0;
@@ -256,18 +271,19 @@ module tr_fsm_tb;
         for (int sec = 0; sec <= 2; sec++) begin
             $display("--- Testing Security Level %0d ---", sec);
 
-            // Sweep all 18 Opcodes (0 to 17)
-            for (int op = 0; op <= 17; op++) begin
+            // Sweep all 21 Opcodes (0 to 20)
+            for (int op = 0; op <= 20; op++) begin
                 run_opcode_test(tr_opcode_t'(op), sec);
             end
         end
 
         $display("=================================================");
-        $display("All 54 FSM Opcode permutations passed successfully.");
+        $display("All 63 FSM Opcode permutations passed successfully.");
         $display("No SVA protocol violations detected.");
         $display("=================================================");
         $finish;
     end
 
 endmodule
+
 `default_nettype wire

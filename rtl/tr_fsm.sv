@@ -25,9 +25,10 @@
  * (e.g., reading an Encapsulation Key from AXI, then immediately extracting
  * its trailing 32-byte seed without returning to IDLE).
  *
- * 3. AXI Beat Tracker & TLAST Generator:
- * Snoops the AXI bus handshakes ('valid' & 'ready') to accurately track data
- * movement. This allows the FSM to combinationally generate exact 'tlast' signals
+ * 3. Data Beat Tracker & TLAST Generator:
+ * Snoops the datapath handshakes ('valid' & 'ready') to accurately track data
+ * movement for both external AXI transfers and internal SeedBank crossbar transfers.
+ * This allows the FSM to combinationally generate exact 'tlast' signals
  * and SeedBank read/write indices without requiring the Math engines to count bits.
  *
  * 4. Latency Management:
@@ -80,6 +81,8 @@ module tr_fsm #(
     // Data Handshake Snooping
     input  wire logic                      axi_rx_vld_rdy_i,
     input  wire logic                      axi_tx_vld_rdy_i,
+    input  wire logic                      internal_rx_vld_rdy_i, // seed_rvalid & unpacker_tready
+    input  wire logic                      internal_tx_vld_rdy_i, // packer_tvalid & seed_ready
 
     // Top-Level Seed Protocol Store
     output      logic                      seed_req_o,
@@ -114,6 +117,7 @@ module tr_fsm #(
     logic                 cfg_is_tx;
     logic                 cfg_math_en;
     logic                 cfg_math_k_loop;
+    logic                 cfg_internal_math_en; // Triggers internal SeedBank tracking
     logic [3:0]           cfg_d_param;
     logic [POLY_ID_W-1:0] cfg_poly_base_id;
     logic                 cfg_bypass_en;
@@ -132,6 +136,7 @@ module tr_fsm #(
         .is_tx_o             (cfg_is_tx),
         .math_en_o           (cfg_math_en),
         .math_k_loop_o       (cfg_math_k_loop),
+        .internal_math_en_o  (cfg_internal_math_en),
         .d_param_o           (cfg_d_param),
         .poly_base_id_o      (cfg_poly_base_id),
         .bypass_en_o         (cfg_bypass_en),
@@ -144,16 +149,21 @@ module tr_fsm #(
     // ====================================================================
     // Beat Tracking & TLAST Generation
     // ====================================================================
-    logic active_axi_fire;
+    logic active_data_fire;
     logic [7:0] math_beats_per_poly;
 
+    // Unified fire tracker for both External AXI and Internal Crossbar
     always_comb begin
         if (state == ST_BYPASS) begin
-            active_axi_fire = (cfg_router_bypass_sel == TR_ROUTER_BYPASS_TX) ? axi_tx_vld_rdy_i : axi_rx_vld_rdy_i;
+            active_data_fire = (cfg_router_bypass_sel == TR_ROUTER_BYPASS_TX) ? axi_tx_vld_rdy_i : axi_rx_vld_rdy_i;
         end else if (state == ST_MATH_WAIT) begin
-            active_axi_fire = (cfg_is_tx) ? axi_tx_vld_rdy_i : axi_rx_vld_rdy_i;
+            if (cfg_internal_math_en) begin
+                active_data_fire = cfg_is_tx ? internal_tx_vld_rdy_i : internal_rx_vld_rdy_i;
+            end else begin
+                active_data_fire = cfg_is_tx ? axi_tx_vld_rdy_i : axi_rx_vld_rdy_i;
+            end
         end else begin
-            active_axi_fire = 1'b0;
+            active_data_fire = 1'b0;
         end
     end
 
@@ -184,10 +194,14 @@ module tr_fsm #(
     assign packer_poly_id_o   = cfg_poly_base_id + k_counter;
     assign unpacker_poly_id_o = cfg_poly_base_id + k_counter;
 
-    assign seed_req_o = (state == ST_BYPASS);
+    // Drive SeedBank for both Bypass routing AND Internal Math routing
+    assign seed_req_o = (state == ST_BYPASS) || (state == ST_MATH_WAIT && cfg_internal_math_en);
     assign seed_idx_o = beat_counter[SEED_IDX_W-1:0];
     assign seed_id_o  = cfg_seed_id;
-    assign seed_we_o  = (state == ST_BYPASS) && (cfg_router_bypass_sel == TR_ROUTER_BYPASS_RX) && axi_rx_vld_rdy_i;
+
+    // Write to SeedBank during AXI->SRAM bypass OR Packer->SRAM internal math
+    assign seed_we_o  = ((state == ST_BYPASS) && (cfg_router_bypass_sel == TR_ROUTER_BYPASS_RX) && axi_rx_vld_rdy_i) ||
+                        ((state == ST_MATH_WAIT) && cfg_internal_math_en && cfg_is_tx && internal_tx_vld_rdy_i);
 
     always_comb begin
         router_sel_o = TR_ROUTER_IDLE;
@@ -239,7 +253,7 @@ module tr_fsm #(
                 end
             end
             ST_BYPASS: begin
-                if (active_axi_fire && (beat_counter == cfg_bypass_beats - 1)) next_state = ST_DONE;
+                if (active_data_fire && (beat_counter == cfg_bypass_beats - 1)) next_state = ST_DONE;
             end
             ST_DONE: next_state = ST_IDLE;
             default: next_state = ST_IDLE;
@@ -253,7 +267,7 @@ module tr_fsm #(
 
     always_ff @(posedge clk) begin
         if (rst) begin
-            opcode_reg    <= TR_OP_KG_INGEST_D;
+            opcode_reg    <= TR_OP_IDLE;
             sec_level_reg <= '0;
             k_counter     <= '0;
             beat_counter  <= '0;
@@ -272,7 +286,7 @@ module tr_fsm #(
 
                 if ((state == ST_MATH_WAIT && math_done_pulse) || (state == ST_MATH_START)) begin
                     beat_counter <= '0;
-                end else if (active_axi_fire) begin
+                end else if (active_data_fire) begin
                     beat_counter <= beat_counter + 1;
                 end
             end
@@ -280,4 +294,5 @@ module tr_fsm #(
     end
 
 endmodule
+
 `default_nettype wire
